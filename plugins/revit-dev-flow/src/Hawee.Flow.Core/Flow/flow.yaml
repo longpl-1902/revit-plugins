@@ -80,10 +80,10 @@ states:
     name: Test trong Revit, vòng tự sửa
     skill: /verify
     do:
-      - test_run từng suite (runner tự chạy Revit, đối chiếu, chấm, test-summary).
+      - test_run từng suite (runner tự build + chạy Revit, đối chiếu, chấm, test-summary).
       - FIX -> sửa đúng file:dòng chẩn đoán -> check_all -> test_run lượt sau. PASS/STOP_G3/STOP_LIMIT -> dừng.
-      - Luật theo ảnh / SUSPECT -> get_detail(image) rồi record_verdict.
-    tools: [test_run, get_detail, record_verdict, check_all]
+      - Cần agent chấm -> get_detail kind=rule, xem ảnh, record_verdict. Chẩn đoán máy gợi ý -> diagnosis_set.
+    tools: [check_all, test_run, get_detail, record_verdict, diagnosis_set, matrix_build, issue_note_draft, gate_submit]
     stop: STOP_G3, STOP_LIMIT, PASS.
     next: g3
 

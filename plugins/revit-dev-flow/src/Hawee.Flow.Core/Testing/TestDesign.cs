@@ -189,6 +189,32 @@ public sealed class TestDesign(ProjectContext ctx, IProcRunner? runner = null)
 
     // ---- ma trận ---------------------------------------------------------------------------------------
 
+    /// <summary>
+    /// Cột Kết quả của một AC từ result.json lần chạy task mới nhất của từng suite (gộp verdict các luật dẫn AC):
+    /// FAIL/ERROR → FAIL; SUSPECT/NOT_MEASURABLE → SUSPECT; mọi luật PASS → PASS; Chỗ hở → chưa đo; không luật → không phủ.
+    /// </summary>
+    private string AcResult(string ac, IEnumerable<string> suites, bool gap, bool needSuite)
+    {
+        var verdicts = new List<string>();
+        var runs = new List<string>();
+        foreach (var s in suites)
+        {
+            var runsDir = Path.Combine(P.Suite(s), "runs");
+            if (!Directory.Exists(runsDir)) continue;
+            var last = Directory.GetDirectories(runsDir).OrderByDescending(d => d).FirstOrDefault(d =>
+                File.Exists(Path.Combine(d, "result.json")) && !Text.Read(Path.Combine(d, "run-info.json")).Contains("\"purpose\": \"baseline\""));
+            if (last is null) continue;
+            runs.Add($"{s}/{Path.GetFileName(last)}");
+            var res = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(last, "result.json"))) as System.Text.Json.Nodes.JsonArray;
+            foreach (var sheet in res ?? new System.Text.Json.Nodes.JsonArray())
+                foreach (var rule in sheet?["rules"] as System.Text.Json.Nodes.JsonArray ?? new System.Text.Json.Nodes.JsonArray())
+                    if (Regex.IsMatch(rule?["ac"]?.ToString() ?? "", $@"\b{ac}\b")) verdicts.Add(rule!["verdict"]!.ToString());
+        }
+        if (verdicts.Count == 0) return gap ? "chưa đo (chỗ hở)" : needSuite ? (runs.Count == 0 ? "chưa chạy" : "không phủ") : "—";
+        var v = verdicts.Any(x => x is "FAIL" or "ERROR") ? "FAIL" : verdicts.All(x => x == "PASS") ? "PASS" : "SUSPECT";
+        return $"{v} ({string.Join(", ", runs)})";
+    }
+
     public string BuildMatrix(string? task)
     {
         var dir = ctx.ResolveTask(task);
@@ -227,7 +253,7 @@ public sealed class TestDesign(ProjectContext ctx, IProcRunner? runner = null)
             else if (gap.Gap is not null) cell = $"Chỗ hở ({gap.Suite}): {gap.Gap.Missing}";
             else if (needSuite.Contains(ac)) { cell = "KHÔNG PHỦ"; uncovered.Add(ac); }
             else cell = "ngoài suite (unit test / tool READ / kiểm tay)";
-            lines.Add($"| {ac} | {Text.Cell(r.Length >= 5 ? Text.Clip(r[4], 60) : "")} | {Text.Cell(cell)} | chưa chạy |");
+            lines.Add($"| {ac} | {Text.Cell(r.Length >= 5 ? Text.Clip(r[4], 60) : "")} | {Text.Cell(cell)} | {Text.Cell(AcResult(ac, hits.Select(h => h.Suite).Distinct(), gap.Gap is not null, needSuite.Contains(ac)))} |");
         }
         var pending = suiteRules.Where(x => x.Rule.Pending).ToList();
         var noSource = suiteRules.Where(x => x.Rule.ExpectSource.Length == 0).ToList();

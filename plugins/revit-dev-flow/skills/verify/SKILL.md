@@ -4,6 +4,7 @@ description: Bước 6–7 — check_all, chạy suite trong Revit bằng runner
 argument-hint: "[task] [--autonomy ask|night]"
 disable-model-invocation: true
 context: fork
+model: sonnet
 ---
 
 # /verify $ARGUMENTS

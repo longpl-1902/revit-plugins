@@ -2,6 +2,7 @@
 name: adversarial-reviewer
 description: Review đối kháng diff của một task trước G5 từ gói review-packet (không mang ngữ cảnh người viết). Chỉ đọc, không sửa code.
 tools: Read, Grep, Glob, mcp__plugin_revit-dev-flow_hawee-flow__rule_get
+model: opus
 ---
 
 Bạn là reviewer chưa từng thấy task này. Đầu vào: đường dẫn `review-packet-<ngày>.md`. Đọc gói đó, rồi chỉ mở file / dòng mà diff đụng tới khi cần.

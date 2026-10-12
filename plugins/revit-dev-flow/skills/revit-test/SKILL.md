@@ -3,6 +3,8 @@ name: revit-test
 description: Chạy một hoặc nhiều suite test Revit bằng runner hawee-flow (không vòng sửa); trả kết quả gọn.
 argument-hint: "<suite> [<suite> …] [--purpose task|baseline|adhoc]"
 disable-model-invocation: true
+context: fork
+model: sonnet
 ---
 
 # /revit-test $ARGUMENTS

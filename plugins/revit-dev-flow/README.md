@@ -85,6 +85,12 @@ Hook `guard-protected-paths` / `post-edit-check` của dự án vẫn để ở 
 An toàn khi chạy Revit (tool cấm, `allow_draw`, `setup_tools` có người duyệt, document phải nằm trong `RUN_DIR`, chỉ kill
 đúng PID, hash model gốc trước = sau) nằm **trong runner** — agent không gọi tool ghi vào Revit nữa.
 
+## Model
+
+Theo quy ước của dự án: agent **phân tích** chạy Opus — `independent-reviewer` (rà spec / plan), `adversarial-reviewer`
+(review diff); việc **thực thi** chạy Sonnet trong phiên con — `/verify` (vòng test → sửa → test), `/revit-test`.
+Các lệnh còn lại chạy bằng model của phiên chính. Đổi: sửa `model:` trong frontmatter của file agent / skill.
+
 ## Giới hạn hiện tại
 
 - Chưa chạy trên Revit thật: runner được kiểm bằng gateway / tracking / tiến trình giả (`src/Hawee.Flow.Tests`). Lần đầu nên chạy song song với `/revit-test` cũ trên một suite đã có kết quả để so `result.json` và kết luận.

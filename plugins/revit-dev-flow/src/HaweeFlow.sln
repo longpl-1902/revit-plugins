@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hawee.Flow.Core", "Hawee.Flow.Core\Hawee.Flow.Core.csproj", "{8A20D410-399E-494B-9C85-54C613530AD9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hawee.Flow.Server", "Hawee.Flow.Server\Hawee.Flow.Server.csproj", "{79AB5A42-3452-410D-A956-1B7B1CA8B67A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hawee.Flow.Tests", "Hawee.Flow.Tests\Hawee.Flow.Tests.csproj", "{EA3477DE-D815-48B7-80CF-3763202FE092}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8A20D410-399E-494B-9C85-54C613530AD9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8A20D410-399E-494B-9C85-54C613530AD9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8A20D410-399E-494B-9C85-54C613530AD9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8A20D410-399E-494B-9C85-54C613530AD9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{79AB5A42-3452-410D-A956-1B7B1CA8B67A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{79AB5A42-3452-410D-A956-1B7B1CA8B67A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{79AB5A42-3452-410D-A956-1B7B1CA8B67A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{79AB5A42-3452-410D-A956-1B7B1CA8B67A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EA3477DE-D815-48B7-80CF-3763202FE092}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EA3477DE-D815-48B7-80CF-3763202FE092}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EA3477DE-D815-48B7-80CF-3763202FE092}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EA3477DE-D815-48B7-80CF-3763202FE092}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,188 @@
+# flow.yaml — luồng BIM_KB_Base 0.8 dạng dữ liệu (thay cho việc đọc steps.md / gates.md / tiers.md / spec-plan.md).
+# Mỗi state của status.yaml -> bước đang làm, việc phải làm (ngắn), tool, điểm dừng.
+# Nguồn: core/process/steps.md, gates.md, tiers.md, spec-plan.md (BIM_KB_Base 0.8). Đổi quy trình: sửa file này + chạy test.
+
+states:
+  context:
+    step: "2"
+    name: Nạp ngữ cảnh, đề xuất tier
+    skill: /task-start
+    do:
+      - Đọc context.md (do task_open sinh). Chỉ đọc thêm source khi context.md chưa trả lời.
+      - Đề xuất tier theo bảng tiers (tool flow_status trả bảng). Nghi ngờ thì chọn tier cao hơn.
+      - Hỏi người câu Q0 (tier + chủ đề) cùng gói câu hỏi 1 của spec.
+    tools: [context_pack, rule_for, kb_search]
+    stop: Chờ người xác nhận Q0 — gửi cùng gói 1 ở bước 3a.
+    next: spec
+
+  spec:
+    step: "3a-3c"
+    name: Spec làm cùng người
+    skill: /spec
+    do:
+      - 3a Khảo sát code thật (file:dòng) -> ghi spec §2. Viết gói câu hỏi 1 (YAML) -> pack_render. DỪNG.
+      - Có trả lời -> pack_apply (tự ghi §14 + DEC). 3b Viết §3-§8 (K1-K9 + kịch bản bắt buộc của profile, AC có "Đo bằng").
+      - Gói 2 chỉ hỏi điểm chưa chắc -> pack_render. DỪNG. Có trả lời -> pack_apply.
+      - 3c doc_check(spec) tới sạch; rà độc lập theo tier (agent independent-reviewer). Trình G1.
+    tools: [doc_scaffold, pack_render, pack_apply, doc_check, rule_get]
+    stop: Mỗi gói câu hỏi; cuối cùng chờ G1.
+    limits: Tối đa 3 gói; T1 mỗi gói ≤ 3 câu, T2+ ≤ 10 câu.
+    next: g1
+
+  g1:
+    step: G1
+    name: Duyệt spec
+    gate: G1
+    do:
+      - Trình 5 dòng tóm tắt + checklist G1 có bằng chứng + câu CHẶN còn lại.
+      - Người duyệt gọi /gate G1 <PASS|CONCERNS|FAIL|WAIVED> (agent không tự ghi).
+    stop: Chờ người duyệt.
+    next: plan
+
+  plan:
+    step: "3d, 4a-4c"
+    name: Sinh test từ spec, rồi plan làm cùng DEV
+    skill: /plan
+    do:
+      - 3d (khi task chạy trong Revit và spec có AC đo bằng suite) -> /test-design trước plan.
+      - 4a baseline_run trên commit gốc; ≥ 2 phương án + caller tìm thật; thiết kế + bất biến; gói 4a (gồm mức tự chủ ask/night). DỪNG.
+      - 4b bước code dạng khối 6 dòng, ma trận AC -> bước -> test; walkthrough với người sẽ code. DỪNG.
+      - 4c doc_check(plan) tới sạch; rà độc lập theo tier. Trình G2.
+    tools: [baseline_run, doc_scaffold, pack_render, pack_apply, doc_check, suite_lint, dataset_register, matrix_build]
+    stop: Gói 4a, walkthrough, chờ G2.
+    next: g2
+
+  g2:
+    step: G2
+    name: Duyệt plan + bảng luật
+    gate: G2
+    do:
+      - Trình checklist G2; baseline có số thật; bảng luật 3d không còn "chờ"; mức tự chủ đã chốt.
+      - Người duyệt gọi /gate G2 ... (tool tự ghi suite_hashes khi PASS).
+    stop: Chờ Tech Lead + người sẽ code xác nhận.
+    next: code
+
+  code:
+    step: "5-6"
+    name: Test trước, rồi code; build/test/lint
+    skill: /implement
+    do:
+      - Nhánh <user>_<issue>-<slug> từ nhánh tích hợp. Mỗi bước plan: test viết trước (thấy FAIL) -> code -> check_all.
+      - Fail mới (không thuộc known_failures) -> sửa, tối đa 5 vòng (check_all đếm). Không nới test.
+      - Lệch nhỏ -> plan §13; lệch lớn -> dừng, quay G2/G1.
+      - Xong mọi bước -> /verify (task chạy trong Revit) hoặc /dod.
+    tools: [check_all, rule_for, rule_get]
+    stop: Lệch lớn; hết 5 vòng.
+    next: test
+
+  test:
+    step: "7"
+    name: Test trong Revit, vòng tự sửa
+    skill: /verify
+    do:
+      - test_run từng suite (runner tự chạy Revit, đối chiếu, chấm, test-summary).
+      - FIX -> sửa đúng file:dòng chẩn đoán -> check_all -> test_run lượt sau. PASS/STOP_G3/STOP_LIMIT -> dừng.
+      - Luật theo ảnh / SUSPECT -> get_detail(image) rồi record_verdict.
+    tools: [test_run, get_detail, record_verdict, check_all]
+    stop: STOP_G3, STOP_LIMIT, PASS.
+    next: g3
+
+  g3:
+    step: G3
+    name: QA xem kết quả test
+    gate: G3
+    do:
+      - Trình kết luận test-summary + ma trận AC (cột Kết quả) + đường dẫn report.
+    stop: Chờ QA.
+    next: commit
+
+  commit:
+    step: "8"
+    name: Definition of Done
+    skill: /dod
+    do:
+      - check_all(full) -> dod_report (sinh dod-report.md + commit message nháp).
+      - DỪNG chờ G4: chủ task nói rõ "commit"/"push" cho lần này.
+    tools: [check_all, dod_report]
+    stop: Chờ G4.
+    next: g4
+
+  g4:
+    step: G4
+    name: Cho commit/push
+    gate: G4
+    do:
+      - Chỉ commit/push khi chủ task nói rõ cho lần này (hook hỏi lại mỗi lần).
+    stop: Chờ chủ task.
+    next: ci
+
+  ci:
+    step: "9"
+    name: CI + review đối kháng
+    skill: /review
+    do:
+      - review_packet -> agent adversarial-reviewer (phiên riêng) -> review-<ngày>.md.
+      - MR ≤ ~400 dòng code; refactor tách khỏi đổi hành vi.
+    tools: [review_packet]
+    stop: Chờ G5.
+    next: g5
+
+  g5:
+    step: G5
+    name: Review + merge
+    gate: G5
+    do:
+      - Tech Lead review, merge; ghi /gate G5.
+    stop: Chờ Tech Lead.
+    next: close
+
+  close:
+    step: "10"
+    name: Đóng task
+    skill: /handoff
+    do:
+      - handoff_draft -> điền phần người; KI mới (Loại, Phòng ngừa, Test hồi quy); case mới vào suite.
+      - Bẫy dùng được cho dự án khác -> kb/inbox. status = done sau G6 (phát hành) hoặc khi không phát hành.
+    tools: [handoff_draft, ki_report]
+    stop: Chờ G6 khi phát hành.
+    next: done
+
+  done:
+    step: done
+    name: Đã xong
+    do: [Không còn việc.]
+    next: done
+
+  parked:
+    step: parked
+    name: Tạm dừng
+    do: [Task đang tạm dừng — hỏi người trước khi làm tiếp.]
+    next: parked
+
+# Cổng: state chờ + state sau khi PASS/CONCERNS/WAIVED + state khi FAIL.
+gates:
+  G1: { from: g1, pass: plan, fail: spec, approvers_key: G1, check: "đạt checklist G1; mọi UNKNOWN có trả lời hoặc ngoài phạm vi; không còn câu CHẶN mở" }
+  G2: { from: g2, pass: code, fail: plan, approvers_key: G2, check: "checklist G2; baseline số thật; người sẽ code xác nhận; bảng luật 3d không còn chờ; mức tự chủ đã chốt" }
+  G3: { from: g3, pass: commit, fail: code, approvers_key: G3, check: "không còn AC FAIL chưa giải thích; SUSPECT đã có người nhìn; DEC-AUTO (night) đã xác nhận" }
+  G4: { from: g4, pass: ci, fail: code, approvers_key: G4, check: "chủ task nói rõ commit/push cho lần này" }
+  G5: { from: g5, pass: close, fail: code, approvers_key: G5, check: "CI xanh; review-record PASS/CONCERNS" }
+  G6: { from: close, pass: done, fail: close, approvers_key: G6, check: "checklist phát hành đủ bằng chứng" }
+
+tiers:
+  T0: { when: "Không đổi hành vi, ≤ 2 giờ; không đụng API ứng dụng chủ, transaction, contract, schema, csproj", spec: "không", plan: "không", review: "không", gates: "G4, G5" }
+  T1: { when: "≤ 1 ngày, một project (+ bản đôi), không đổi chữ ký có caller ngoài file, không thêm capability, không đụng contract/transaction/thread/view template", spec: "lite §0 §1 §3 §4 §5 §9 §12 §14", plan: "lite §0 §1 §1.3 §3.1 §5.2 §5.6 §6 §7 §8 §11", review: "doc_check", gates: "G1 (AC trong issue được), G2 bỏ người duyệt theo skip_if, G3 nếu đụng Revit, G4, G5" }
+  T2: { when: "Mọi việc còn lại ≤ 1 tuần (mặc định)", spec: "đủ mẫu", plan: "đủ mẫu", review: "doc_check + 1 người/agent khác", gates: "G1-G5, G3 bắt buộc nếu đụng Revit" }
+  T3: { when: "> 1 tuần, hoặc nhiều phân hệ, đổi contract dùng chung, đổi build/đóng gói, ghi/xoá hàng loạt, dữ liệu ra ngoài, ≥ 3 project", spec: "đủ mẫu + ADR", plan: "đủ mẫu + rủi ro có điểm + đường lui thử được", review: "doc_check + 2 người/agent, một người ngoài phân hệ", gates: "G1-G6, G2 không bỏ, G3 có suite golden" }
+
+# Mục bắt buộc theo tier (doc_scaffold): mục ngoài danh sách ghi "Không áp dụng – ngoài tier".
+sections:
+  spec:
+    T1: ["0", "1", "3", "4", "5", "9", "12", "14"]
+  plan:
+    T1: ["0", "1", "1.1", "1.2", "1.3", "3", "3.1", "5", "5.2", "5.6", "6", "7", "8", "11"]
+
+limits:
+  build_test_loops: 5
+  host_test_fixes_default: 3
+  questions_per_pack: { T1: 3, T2: 10, T3: 10 }
+  packs_max: 3

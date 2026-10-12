@@ -9,7 +9,7 @@ states:
     skill: /task-start
     do:
       - Đọc context.md (do task_open sinh). Chỉ đọc thêm source khi context.md chưa trả lời.
-      - Đề xuất tier theo bảng tiers (tool flow_status trả bảng). Nghi ngờ thì chọn tier cao hơn.
+      - Đề xuất tier theo bảng tier cuối context.md. Nghi ngờ thì chọn tier cao hơn.
       - Hỏi người câu Q0 (tier + chủ đề) cùng gói câu hỏi 1 của spec.
     tools: [context_pack, rule_for, kb_search]
     stop: Chờ người xác nhận Q0 — gửi cùng gói 1 ở bước 3a.

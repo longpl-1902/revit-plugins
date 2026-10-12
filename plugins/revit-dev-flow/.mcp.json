@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "hawee-flow": {
+      "command": "dotnet",
+      "args": ["${CLAUDE_PLUGIN_DATA}/server/Hawee.Flow.Server.dll"],
+      "env": { "HAWEE_FLOW_PLUGIN_ROOT": "${CLAUDE_PLUGIN_ROOT}" }
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "description": "revit-dev-flow: hỏi lại người trước khi ghi cổng G1–G6 hoặc commit/push (G4); dựng server hawee-flow khi cần.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__.*hawee-flow__gate_record|Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe",
+            "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${CLAUDE_PLUGIN_ROOT}/hooks/plugin-guard.ps1"],
+            "timeout": 30,
+            "onFailure": "block"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe",
+            "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${CLAUDE_PLUGIN_ROOT}/scripts/ensure-server.ps1"],
+            "timeout": 300
+          }
+        ]
+      }
+    ]
+  }
+}

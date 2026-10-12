@@ -48,8 +48,14 @@ public static class Text
         return sb.ToString().ToLowerInvariant();
     }
 
+    private static readonly HashSet<string> Stop = new()
+    {
+        "theo", "cho", "cua", "khi", "voi", "mot", "cac", "nhung", "khong", "duoc", "trong", "tren", "duoi", "sau", "truoc",
+        "the", "and", "for", "with", "lam", "them", "sua", "bang", "nay", "kia", "hay", "hoac", "neu", "thi", "phai", "task",
+    };
+
     public static List<string> Keywords(string s) =>
-        Regex.Split(Fold(s), @"[^a-z0-9_]+").Where(w => w.Length >= 3).Distinct().ToList();
+        Regex.Split(Fold(s), @"[^a-z0-9_]+").Where(w => w.Length >= 3 && !Stop.Contains(w)).Distinct().ToList();
 
     /// <summary>Thoát ký tự '|' trong ô bảng markdown.</summary>
     public static string Cell(string? s) => (s ?? "").Replace("\n", " ").Replace("|", "\\|").Trim();

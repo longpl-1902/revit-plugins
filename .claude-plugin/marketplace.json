@@ -1,0 +1,12 @@
+{
+  "name": "revit-plugins",
+  "owner": { "name": "longpl-1902" },
+  "metadata": { "description": "Plugin Claude Code cho phát triển add-in Revit theo BIM_KB_Base." },
+  "plugins": [
+    {
+      "name": "revit-dev-flow",
+      "source": "./plugins/revit-dev-flow",
+      "description": "Luồng bước 1–10 / cổng G1–G6 của BIM_KB_Base với ít token: MCP server hawee-flow (C#), skill mỏng, hook cổng."
+    }
+  ]
+}

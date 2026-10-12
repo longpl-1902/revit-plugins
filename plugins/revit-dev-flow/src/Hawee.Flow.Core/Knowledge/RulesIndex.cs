@@ -72,18 +72,36 @@ public sealed class RulesIndex
     {
         var kws = keywords.SelectMany(Text.Keywords).Distinct().ToList();
         if (kws.Count == 0) return Enumerable.Empty<(RuleEntry, int)>();
-        return Rules
-            .Select(r =>
+        var docs = Rules.Select(r => (Rule: r, T: new Terms.Doc(r.Id + " " + r.Title), B: new Terms.Doc(r.Body))).ToList();
+        // từ hiếm nặng hơn từ có trong mọi rule (IDF): "transaction" > "revit"
+        var idf = kws.ToDictionary(k => k, k =>
+        {
+            var df = docs.Count(d => d.T.Has(k) || d.B.Has(k));
+            return Math.Log((docs.Count + 1.0) / (df + 1.0)) + 1;
+        });
+        return docs
+            .Select(d =>
             {
-                var t = Text.Fold(r.Id + " " + r.Title);
-                var b = Text.Fold(r.Body);
-                var score = kws.Sum(k => (t.Contains(k) ? 5 : 0) + (b.Contains(k) ? 1 : 0));
-                score += r.Level switch { "blocker" => 2, "high" => 1, _ => 0 };
-                return (Rule: r, Score: kws.Any(k => t.Contains(k) || b.Contains(k)) ? score : 0);
+                var hit = kws.Where(k => d.T.Has(k) || d.B.Has(k)).ToList();
+                if (hit.Count == 0) return (Rule: d.Rule, Score: 0);
+                var score = hit.Sum(k => idf[k] * ((d.T.Has(k) ? 5 : 0) + (d.B.Has(k) ? 1 : 0)));
+                score += d.Rule.Level switch { "blocker" => 2, "high" => 1, _ => 0 };
+                return (Rule: d.Rule, Score: (int)Math.Round(score));
             })
             .Where(x => x.Score > 2)
             .OrderByDescending(x => x.Score)
             .Take(take);
+    }
+
+    /// <summary>Từ khoá từ đường dẫn file sắp sửa; bỏ tên solution / project của repo (có trong mọi đường dẫn).</summary>
+    public static List<string> PathKeywords(ProjectContext ctx, string paths)
+    {
+        if (string.IsNullOrWhiteSpace(paths)) return new();
+        var names = Directory.Exists(ctx.Root)
+            ? Directory.EnumerateFiles(ctx.Root, "*.sln").Concat(Directory.EnumerateFiles(ctx.Root, "*.csproj", new EnumerationOptions { RecurseSubdirectories = true, MaxRecursionDepth = 3 }))
+                .Select(Path.GetFileNameWithoutExtension).OfType<string>()
+            : Enumerable.Empty<string>();
+        return Terms.FromPaths(paths, names);
     }
 
     public static string Line(RuleEntry r) =>

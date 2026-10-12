@@ -75,6 +75,11 @@ public sealed class GradingData(string runDir, string suiteDir, IReadOnlyList<st
 /// </summary>
 public sealed class Grader(GradingData data)
 {
+    /// <summary>Sai số (mm) khi luật so số thực mà không ghi "± x" (revit_test.default_tol_mm). Đổi feet → mm cho ra 99.99999997 thay vì 100.</summary>
+    public double DefaultTol { get; init; }
+
+    private double Tol(Call c) => c.Tol ?? DefaultTol;
+
     private sealed record Item(JsonNode Node, Dictionary<string, string> Ctx);
 
     public GradeResult Grade(TestRule rule, IReadOnlyList<string> sheets)
@@ -375,7 +380,7 @@ public sealed class Grader(GradingData data)
             if (la.Count == 0 || lb.Count == 0)
                 return new GroupResult(k, Verdicts.NotMeasurable, $"{c.Op} {expected}", "—", $"thiếu {(la.Count == 0 ? c.Args[0] : c.Args[1])} trong nhóm {k}");
             var area = la.Sum(x => lb.Sum(y => Box.Overlap(NeedBox(x, c.Args[0]), NeedBox(y, c.Args[1]))));
-            var ok = Compare(area, c.Op.Length > 0 ? c.Op : "=", expected, c.Tol ?? 0);
+            var ok = Compare(area, c.Op.Length > 0 ? c.Op : "=", expected, Tol(c));
             return new GroupResult(k, ok ? Verdicts.Pass : Verdicts.Fail, $"{(c.Op.Length > 0 ? c.Op : "=")} {expected} mm²",
                 area.ToString("0.##", CultureInfo.InvariantCulture) + " mm²",
                 $"giao({c.Args[0]}{Boxes(la)}, {c.Args[1]}{Boxes(lb)}) = {area.ToString("0.##", CultureInfo.InvariantCulture)}");
@@ -388,7 +393,7 @@ public sealed class Grader(GradingData data)
         if (c.Args.Count != 2) throw new GradeException("trong(A, vùng) cần 2 tham số");
         var a = GroupBy(Source(c.Args[0]), c.GroupBy);
         var region = GroupBy(Source(c.Args[1]), c.GroupBy);
-        var tol = c.Tol ?? 0;
+        var tol = Tol(c);
         var res = Groups(a, sheets, c.GroupBy, region).Select(k =>
         {
             var la = a.GetValueOrDefault(k) ?? new();
@@ -411,9 +416,9 @@ public sealed class Grader(GradingData data)
         var expected = Value(c.Args[1]);
         bool ok;
         if (double.TryParse(actual, NumberStyles.Float, CultureInfo.InvariantCulture, out var x) && double.TryParse(expected, NumberStyles.Float, CultureInfo.InvariantCulture, out var y))
-            ok = Math.Abs(x - y) <= (c.Tol ?? 0);
+            ok = Math.Abs(x - y) <= Tol(c);
         else ok = string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
-        return Done(new() { new GroupResult("*", ok ? Verdicts.Pass : Verdicts.Fail, expected + (c.Tol is { } t ? $" ± {t}" : ""), actual, $"bằng({c.Args[0]} = {actual}, {c.Args[1]} = {expected})") });
+        return Done(new() { new GroupResult("*", ok ? Verdicts.Pass : Verdicts.Fail, expected + (Tol(c) is var t && t > 0 ? $" ± {t.ToString(CultureInfo.InvariantCulture)}" : ""), actual, $"bằng({c.Args[0]} = {actual}, {c.Args[1]} = {expected})") });
     }
 
     private GradeResult Order(Call c)
@@ -437,7 +442,7 @@ public sealed class Grader(GradingData data)
         if (basePath is null) return new(Verdicts.NotMeasurable, new(), $"chưa có baseline\\{file} (lần chạy đầu là lần lấy baseline)", data.FilesRead.ToList());
         var now = AllObjects(Load(file)).Where(i => Field(i, key) is not null).GroupBy(i => Field(i, key)!).ToDictionary(g => g.Key, g => g.First());
         var old = AllObjects(GradingData.LoadJson(basePath)!).Where(i => Field(i, key) is not null).GroupBy(i => Field(i, key)!).ToDictionary(g => g.Key, g => g.First());
-        var tol = c.Tol ?? 0;
+        var tol = Tol(c);
         var res = new List<GroupResult>();
         foreach (var k in old.Keys.Union(now.Keys).OrderBy(x => x, StringComparer.Ordinal))
         {
@@ -457,8 +462,8 @@ public sealed class Grader(GradingData data)
         static bool Same(string a, string b, double tol)
         {
             if (a == b) return true;
-            var na = Regex.Matches(a, @"-?\d+(\.\d+)?").Select(m => double.Parse(m.Value, CultureInfo.InvariantCulture)).ToList();
-            var nb = Regex.Matches(b, @"-?\d+(\.\d+)?").Select(m => double.Parse(m.Value, CultureInfo.InvariantCulture)).ToList();
+            var na = Regex.Matches(a, @"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?").Select(m => double.Parse(m.Value, NumberStyles.Float, CultureInfo.InvariantCulture)).ToList();
+            var nb = Regex.Matches(b, @"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?").Select(m => double.Parse(m.Value, NumberStyles.Float, CultureInfo.InvariantCulture)).ToList();
             return na.Count > 0 && na.Count == nb.Count && na.Zip(nb).All(p => Math.Abs(p.First - p.Second) <= tol);
         }
     }

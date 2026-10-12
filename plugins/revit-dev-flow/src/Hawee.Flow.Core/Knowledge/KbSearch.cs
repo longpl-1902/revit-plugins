@@ -27,9 +27,9 @@ public sealed class KbSearch(ProjectContext ctx)
             var title = lines.Select(l => Regex.Match(l, "^title:\\s*(.+)$")).FirstOrDefault(m => m.Success)?.Groups[1].Value
                         ?? lines.FirstOrDefault(l => l.StartsWith("# "))?[2..] ?? name;
             var id = KbId.Match(name.ToUpperInvariant().Replace('_', '-')).Groups[1].Value;
-            var t = Text.Fold(title + " " + name);
-            var head = Text.Fold(string.Join(' ', lines.Take(40)));
-            var score = kws.Sum(k => (t.Contains(k) ? 4 : 0) + (head.Contains(k) ? 1 : 0));
+            var t = new Terms.Doc(title + " " + Path.GetFileNameWithoutExtension(name));
+            var head = new Terms.Doc(string.Join(' ', lines.Take(40)));
+            var score = kws.Sum(k => (t.Has(k) ? 4 : 0) + (head.Has(k) ? 1 : 0));
             if (score >= 4) hits.Add(new KbHit(id.Length > 0 ? id : Path.GetFileNameWithoutExtension(f), Text.Clip(title.Trim(), 120), ctx.Rel(f), score));
         }
         return hits.OrderByDescending(h => h.Score).Take(take);
@@ -61,7 +61,8 @@ public sealed class KbSearch(ProjectContext ctx)
     {
         var kws = keywords.SelectMany(Text.Keywords).Distinct().ToList();
         return KnownIssues()
-            .Select(k => (Ki: k, Score: kws.Sum(w => (Text.Fold(k.Title).Contains(w) ? 3 : 0) + (Text.Fold(k.Body).Contains(w) ? 1 : 0))))
+            .Select(k => (Ki: k, T: new Terms.Doc(k.Title), B: new Terms.Doc(k.Body)))
+            .Select(x => (x.Ki, Score: kws.Sum(w => (x.T.Has(w) ? 3 : 0) + (x.B.Has(w) ? 1 : 0))))
             .Where(x => x.Score >= 3)
             .OrderByDescending(x => x.Ki.State == "OPEN").ThenByDescending(x => x.Score)
             .Take(take).Select(x => x.Ki);

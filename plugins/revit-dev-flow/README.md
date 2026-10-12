@@ -63,6 +63,9 @@ Mỗi bước: `flow_next` trả ≤ 15 dòng (việc, tool, điều kiện cổ
 "Máy chấm" hỗ trợ: `đếm`, `giao`, `trong`, `bằng`, `thứ tự`, `khớp baseline`, `có dòng`, `không có dòng`, `step xong`;
 `ảnh(...)` và cú pháp lạ chuyển cho agent. bbox đọc được: `{minX,minY,maxX,maxY}`, `{min:{x,y},max:{x,y}}`,
 `{x,y,width,height}`, `[x1,y1,x2,y2]` (mm). Dữ liệu không đúng hình → `NOT_MEASURABLE` kèm lý do, không bao giờ `PASS`.
+Luật so số thực (`bằng`, `trong`, `giao`, `khớp baseline`) không ghi `± x` dùng sai số `revit_test.default_tol_mm`
+(mặc định 0.01 mm — đổi feet → mm cho ra 99.99999997 thay vì 100); `đếm` luôn so đúng. Verdict agent chấm bằng mắt chỉ
+được dùng lại ở lượt sau khi luật **và ảnh / dữ liệu** không đổi.
 
 Định dạng file giữ nguyên để script cũ của Base vẫn dùng được: `status.yaml`, `suite.yaml`, `rules.md`,
 `dataset.yaml`, `run-info.json`, `result.json`, `data\step_status.json`, `data\checkpoints\<step>\outputs.json`,
@@ -95,7 +98,8 @@ An toàn khi chạy Revit (tool cấm, `allow_draw`, `setup_tools` có người 
 ```text
 cd plugins/revit-dev-flow/src
 dotnet build
-dotnet test                       # 64 test, chạy được cả trên Linux
+dotnet test                       # chạy được cả trên Linux
+powershell -File ../hooks/plugin-guard.tests.ps1         # kiểm hook chặn commit / push
 dotnet run --project Hawee.Flow.Server -- tools          # liệt kê tool
 dotnet run --project Hawee.Flow.Server -- call flow_next "{}"   # gọi một tool từ dòng lệnh
 ```

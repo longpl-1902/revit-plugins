@@ -81,10 +81,10 @@ public static class KnowledgeTools
         int take = 8)
         => Safe.Run(() =>
         {
+            var ctx = Safe.Ctx();
             var words = new List<string> { keywords };
-            words.AddRange(paths.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                .SelectMany(p => p.Trim().Split('/', '\\', '.')).Where(s => s.Length > 2));
-            var hits = new RulesIndex(Safe.Ctx()).Search(words, take).ToList();
+            words.AddRange(RulesIndex.PathKeywords(ctx, paths));
+            var hits = new RulesIndex(ctx).Search(words, take).ToList();
             return hits.Count == 0 ? "không có rule khớp" : string.Join('\n', hits.Select(h => RulesIndex.Line(h.Rule)));
         });
 

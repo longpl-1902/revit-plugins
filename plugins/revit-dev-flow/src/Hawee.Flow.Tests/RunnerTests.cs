@@ -268,7 +268,50 @@ public class RunnerTests : IDisposable
         Assert.Contains("ERROR", File.ReadAllText(Path.Combine(LatestRun(), "result.json")));
         var store = new RunStore(repo.Ctx(), RunnerConfig.From(repo.Ctx()), repo.Runner);
         Assert.Contains("NullReferenceException", store.Detail("1-main", "", "log", "", 5));
-        Assert.Contains("in_task_diff true", store.SetDiagnosis("1-main", "", "CODE", "KeyplanService.cs:142", "true", "", "", ""));
+        // file:dòng phải có thật trong repo
+        Assert.Contains("không có trong repo", Assert.Throws<FlowException>(() => store.SetDiagnosis("1-main", "", "CODE", "KeyplanService.cs:142", "true", "", "", "")).Message);
+        Assert.Contains("file:dòng", Assert.Throws<FlowException>(() => store.SetDiagnosis("1-main", "", "CODE", "lỗi gì đó trong log", "", "", "", "")).Message);
+        repo.Write("src/Draw/KeyplanService.cs", string.Concat(Enumerable.Repeat("//\n", 150)));
+        Assert.Contains("không có trong repo", Assert.Throws<FlowException>(() => store.SetDiagnosis("1-main", "", "CODE", "KeyplanService.cs:999", "", "", "", "")).Message);
+        // chạy lẻ (không có task) → không có diff để so, nhận giá trị agent khai
+        Assert.Contains("in_task_diff true", store.SetDiagnosis("1-main", "", "CODE", @"D:\build\src\Draw\KeyplanService.cs:142", "true", "", "", ""));
+    }
+
+    [Fact]
+    public async Task Chan_doan_in_task_diff_do_may_tinh()
+    {
+        using var repo = Repo();
+        Suite("  - { tool: import_csv, args: {} }");
+        FakeScripts(repo);
+        var changed = new List<string>();
+        var inner = repo.Runner.Handler!;
+        repo.Runner.Handler = (file, args) => file == "git" && args.Contains("--name-only") ? new ProcResult(0, string.Join("\n", changed), false)
+            : file == "git" && args.Contains("--verify") ? new ProcResult(0, "abc", false) : inner(file, args);
+        new TaskOpener(repo.Ctx(), repo.Runner).Open(new OpenInput("1", "main"));
+        repo.Write("src/Draw/KeyplanService.cs", string.Concat(Enumerable.Repeat("//\n", 150)));
+        repo.Write("src/Ui/Dialog.cs", "//\n//\n");
+        var (runner, gw, _) = Make(repo);
+        gw.StepHook = (_, _) =>
+        {
+            File.AppendAllText(LogFile, "2026-10-12 09:00:01 [5] INFO [Step] CREATE_SHEETS externalRunId=run-9\n2026-10-12 09:00:02 [5] ERROR NullReferenceException\n   at Hawee.Draw.KeyplanService.Place() in D:\\src\\Draw\\KeyplanService.cs:line 142\n");
+            return new ToolCall(false, "INTERNAL: Object reference not set", null);
+        };
+        changed.Add("src/Draw/KeyplanService.cs");
+        await runner.Run(new RunRequest("1-main", Task: "1"));
+        var d = JsonNode.Parse(File.ReadAllText(Path.Combine(LatestRun(), "data", "diagnosis.json")))!;
+        Assert.True(d["in_task_diff"]!.GetValue<bool>());
+
+        var store = new RunStore(repo.Ctx(), RunnerConfig.From(repo.Ctx()), repo.Runner);
+        // bỏ trống → giữ giá trị máy (trước đây bị xoá về null)
+        Assert.Contains("in_task_diff true (máy)", store.SetDiagnosis("1-main", "", "CODE", "KeyplanService.cs:142", "", "", "", ""));
+        // khai ngược với máy → lỗi, không ghi
+        var ex = Assert.Throws<FlowException>(() => store.SetDiagnosis("1-main", "", "CODE", "KeyplanService.cs:142", "false", "", "", ""));
+        Assert.Contains("máy tính ra true", ex.Message);
+        // lỗi gốc ở file ngoài diff → máy ra false
+        Assert.Contains("in_task_diff false (máy)", store.SetDiagnosis("1-main", "", "CODE", "Ui/Dialog.cs:2", "", "KI-0007", "", ""));
+        // ki bỏ trống → giữ
+        store.SetDiagnosis("1-main", "", "CODE", "Ui/Dialog.cs:2", "", "", "", "");
+        Assert.Equal("KI-0007", JsonNode.Parse(File.ReadAllText(Path.Combine(LatestRun(), "data", "diagnosis.json")))!["ki"]!.ToString());
     }
 
     [Fact]
@@ -300,6 +343,66 @@ public class RunnerTests : IDisposable
         var (runner, _, _) = Make(repo);
         var ex = await Assert.ThrowsAsync<FlowException>(() => runner.Run(new RunRequest("1-main", Task: "1")));
         Assert.Contains("đổi sau khi duyệt ở G2", ex.Message);
+    }
+
+    [Fact]
+    public async Task Verdict_anh_chi_dung_lai_khi_du_lieu_khong_doi()
+    {
+        using var repo = Repo();
+        Suite("  - { tool: import_csv, args: {} }");
+        FakeScripts(repo);
+        var (runner, gw, _) = Make(repo);
+        await runner.Run(new RunRequest("1-main"));
+        var store = new RunStore(repo.Ctx(), RunnerConfig.From(repo.Ctx()), repo.Runner);
+        store.RecordVerdict("1-main", "", "R-03", "", "PASS", "label nằm trên, cách keyplan 12 mm ở cả hai ảnh");
+
+        // lượt 2: dữ liệu như lượt 1 → dùng lại verdict của agent
+        repo.Clock.Now = repo.Clock.Now.AddMinutes(5);
+        Text.Write(LogFile, "2026-10-12 08:00:00 [1] INFO dòng cũ trước lần chạy\n");
+        var r2 = await runner.Run(new RunRequest("1-main"));
+        Assert.DoesNotContain("Cần agent chấm: R-03", r2);
+        var info2 = JsonNode.Parse(File.ReadAllText(Path.Combine(LatestRun(), "run-info.json")))!;
+        Assert.Equal(1, info2["grading"]!["reused"]!.GetValue<int>());
+
+        // lượt 3: code đổi → add-in ghi khác → không được dùng lại verdict cũ
+        repo.Clock.Now = repo.Clock.Now.AddMinutes(5);
+        Text.Write(LogFile, "2026-10-12 08:00:00 [1] INFO dòng cũ trước lần chạy\n");
+        gw.StepHook = (_, _) =>
+        {
+            File.AppendAllText(LogFile, "2026-10-12 09:10:01 [5] INFO [Step] CREATE_SHEETS start externalRunId=run-778\n2026-10-12 09:10:09 [5] INFO [Step] SAVE done (label dời)\n");
+            return new ToolCall(true, "ok", null);
+        };
+        var r3 = await runner.Run(new RunRequest("1-main"));
+        Assert.Contains("Cần agent chấm: R-03", r3);
+    }
+
+    [Fact]
+    public void Suite_lint_canh_bao_luat_so_so_thuc_khong_co_sai_so()
+    {
+        using var repo = Repo("  default_tol_mm: 0.05");
+        Suite("  - { tool: import_csv, args: {} }");
+        FakeScripts(repo);
+        var r = new TestDesign(repo.Ctx(), repo.Runner).SuiteLint(null, "1-main", false);
+        Assert.Contains("[rule-tol] 1 luật", r);
+        Assert.Contains("1-main/R-02", r);
+        Assert.Contains("0.05 mm", r);
+        Assert.Equal(0.05, RunnerConfig.From(repo.Ctx()).DefaultTolMm);
+    }
+
+    [Fact]
+    public void Khoa_cham_anh_doi_khi_anh_doi()
+    {
+        var data = Directory.CreateDirectory(Path.Combine(_root, "data")).FullName;
+        var rule = RulesFile.Parse("### R-03 — Label không đè\n- Kỳ vọng: theo ảnh\n- Máy chấm: ảnh(label)\n- Ảnh minh chứng: FINAL_A-101.png\n").Rules[0];
+        File.WriteAllBytes(Path.Combine(data, "FINAL_A-101.png"), new byte[] { 1, 2, 3 });
+        var k1 = TestRunner.GradingKey(rule, Array.Empty<string>(), data, Verdicts.Agent);
+        Assert.Equal(k1, TestRunner.GradingKey(rule, Array.Empty<string>(), data, Verdicts.Agent));
+        File.WriteAllBytes(Path.Combine(data, "FINAL_A-101.png"), new byte[] { 1, 2, 4 });
+        Assert.NotEqual(k1, TestRunner.GradingKey(rule, Array.Empty<string>(), data, Verdicts.Agent));
+        // thư mục grading\ (ghi sau khi chấm) không làm đổi khoá
+        var k2 = TestRunner.GradingKey(rule, Array.Empty<string>(), data, Verdicts.Agent);
+        Text.Write(Path.Combine(data, "grading", "agent.json"), "{}");
+        Assert.Equal(k2, TestRunner.GradingKey(rule, Array.Empty<string>(), data, Verdicts.Agent));
     }
 
     [Theory]

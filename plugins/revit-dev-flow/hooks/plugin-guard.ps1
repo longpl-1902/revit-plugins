@@ -25,8 +25,9 @@ if ($tool -match 'hawee-flow__gate_record$') {
 
 if ($tool -eq 'Bash' -or $tool -eq 'PowerShell') {
     $cmd = [string]$ti.command
-    if ($cmd -match '(^|[;&|(\s])git(\s+-[^\s]+(\s+[^\s-][^\s]*)?)*\s+(commit|push)\b') {
-        if ($cmd -match '\bpush\b.*(\s--force\b|\s-f\b|\s--force-with-lease\b)') { Decide 'deny' 'G4: khong force-push.' }
+    # git / git.exe / "C:\...\git.exe" / cmd /c "git ...", kem tuy chon toan cuc (-C dir, -c k=v)
+    if ($cmd -match '(^|[;&|(\s"''`\\/])git(\.exe)?["'']?(\s+-[^\s]+(\s+[^\s-][^\s]*)?)*\s+(commit|push)\b') {
+        if ($cmd -match '\bpush\b.*(\s--force\b|\s-f\b|\s--force-with-lease\b|\s--force-if-includes\b|\s\+[^\s]+)') { Decide 'deny' 'G4: khong force-push (ke ca refspec +nhanh).' }
         if ($cmd -match '--no-verify') { Decide 'deny' 'Khong bo qua hook git (--no-verify).' }
         Decide 'ask' 'G4: chu task phai noi ro "commit"/"push" cho LAN NAY (lan duyet truoc khong ap dung).'
     }

@@ -106,6 +106,26 @@ public class GradingTests : IDisposable
     }
 
     [Fact]
+    public void So_so_thuc_dung_sai_so_mac_dinh()
+    {
+        GradeResult T(string grader, double tol)
+        {
+            var rule = RulesFile.Parse($"### R-01 — x\n- Kỳ vọng: x\n- Máy chấm: {grader}\n").Rules[0];
+            return new Grader(new GradingData(_run, _suite, new[] { _cfg })) { DefaultTol = tol }.Grade(rule, Array.Empty<string>());
+        }
+        // feet → mm: 99.99999997 thay vì 100
+        Assert.Equal(Verdicts.Fail, T("bằng(99.99999997, 100)", 0).Verdict);
+        Assert.Equal(Verdicts.Pass, T("bằng(99.99999997, 100)", 0.01).Verdict);
+        Assert.Equal(Verdicts.Fail, T("bằng(99.9, 100)", 0.01).Verdict);
+        // "± x" trong luật thắng sai số mặc định
+        Assert.Equal(Verdicts.Fail, T("bằng(99.99999997, 100) ± 0", 0.01).Verdict);
+        // khớp baseline đọc được số dạng mũ: 1.2E-05 == 0.000012
+        Text.Write(Path.Combine(_suite, "baseline", "e.json"), """[ { "type": "A", "v": "0.000012" } ]""");
+        Text.Write(Path.Combine(_run, "data", "e.json"), """[ { "type": "A", "v": "1.2E-05" } ]""");
+        Assert.Equal(Verdicts.Pass, T("khớp baseline(e.json, khoá type, trường v)", 0).Verdict);
+    }
+
+    [Fact]
     public void Khong_cham_duoc_thi_noi_ro()
     {
         Assert.Equal(Verdicts.Agent, G("ảnh(label không đè keyplan)").Verdict);

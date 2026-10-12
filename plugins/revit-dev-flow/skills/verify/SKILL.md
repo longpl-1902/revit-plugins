@@ -16,7 +16,7 @@ Mỗi lượt n = 0, 1, …:
 3. Đọc kết quả runner:
    - **Cần agent chấm** → `get_detail kind=rule ref=R-xx`, mở ảnh bằng Read, `record_verdict` (PASS phải nói rõ đã kiểm gì; còn nghi → SUSPECT).
    - **Chẩn đoán** (máy chỉ gợi ý) → `get_detail kind=log` quanh dòng lỗi đầu; xác nhận hoặc sửa bằng `diagnosis_set`
-     (CODE chỉ khi có `file:dòng`; in_task_diff=true chỉ khi file đó nằm trong diff của task; thuộc KI → ghi ki).
+     (CODE cần `file:dòng` có thật; in_task_diff để trống — máy tự tính từ file đó × diff của task; thuộc KI → ghi ki).
      FAIL không kèm lỗi log → tự chẩn đoán từ dữ liệu (`get_detail kind=rule`) rồi `diagnosis_set`.
    - **test-summary**: `PASS` → bước 4 · `FIX` → sửa tối thiểu đúng `file:dòng` chẩn đoán (ghi plan §13 nếu lệch nhỏ), về bước 1 với n + 1 ·
      `STOP_G3` / `STOP_LIMIT` → bước 4. Không sửa theo giả thuyết; không chạy quá số lượt.

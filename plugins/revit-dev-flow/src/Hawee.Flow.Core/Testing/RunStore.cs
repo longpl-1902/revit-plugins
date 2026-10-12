@@ -153,18 +153,82 @@ public sealed class RunStore(ProjectContext ctx, RunnerConfig cfg, IProcRunner? 
         var dir = RunDir(suite, run);
         var path = Path.Combine(dir, "data", "diagnosis.json");
         var d = Read(path) as JsonObject ?? new JsonObject();
+
+        // file:dòng trong evidence phải có thật; lỗi CODE bắt buộc có (sửa code mà không biết chỗ là đoán)
+        var refs = SourceRefs(evidence);
+        var missing = refs.Where(r => r.Path is null).Select(r => r.Text).ToList();
+        if (cls == "CODE")
+        {
+            if (missing.Count > 0) throw new FlowException($"evidence trỏ tới chỗ không có trong repo: {string.Join(", ", missing)}");
+            if (refs.Count == 0) throw new FlowException("lỗi CODE cần evidence dạng file:dòng có thật (vd. Draw/KeyplanService.cs:142)");
+        }
+        refs = refs.Where(r => r.Path is not null).ToList(); // lớp khác: frame của thư viện ngoài repo thì bỏ qua
+
+        // in_task_diff: máy tính từ file trong evidence (không có thì stack trace) × file thay đổi của task
+        var machine = MachineInDiff(dir, refs.Select(r => r.Path!).ToList(), d);
+        var claimed = Tri(inTaskDiff);
+        if (claimed is not null && machine is not null && claimed != machine)
+            throw new FlowException($"in_task_diff khai {Low(claimed)} nhưng máy tính ra {Low(machine)} (file lỗi: {string.Join(", ", refs.Count > 0 ? refs.Select(r => r.Path!) : d["stack_files"]?.AsArray().Select(x => x!.ToString()) ?? Enumerable.Empty<string>())}) — kiểm lại evidence, hoặc bỏ trống để dùng giá trị máy");
+
         d["class"] = cls;
         d["evidence"] = evidence;
-        d["ki"] = ki;
-        d["in_task_diff"] = Tri(inTaskDiff);
+        if (ki.Trim().Length > 0) d["ki"] = ki.Trim() == "-" ? "" : ki.Trim();
+        d["in_task_diff"] = machine ?? claimed ?? (d["in_task_diff"]?.GetValueKind() is JsonValueKind.True or JsonValueKind.False ? d["in_task_diff"]!.GetValue<bool>() : null);
         if (blocksTask.Length > 0) d["blocks_task"] = Tri(blocksTask);
         if (fixTarget.Length > 0) d["fix_target"] = fixTarget;
         d["suggested_by"] = "agent (diagnosis_set)";
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, d.ToJsonString(JsonOut));
-        return $"chẩn đoán {cls} · in_task_diff {d["in_task_diff"]?.ToString() ?? "null"} · " + SummaryLine(dir, autonomy);
+        return $"chẩn đoán {cls} · in_task_diff {d["in_task_diff"]?.ToString() ?? "null"}{(machine is not null ? " (máy)" : "")} · " + SummaryLine(dir, autonomy);
 
-        static JsonNode? Tri(string v) => v.Trim().ToLowerInvariant() switch { "true" => true, "false" => false, _ => null };
+        static bool? Tri(string v) => v.Trim().ToLowerInvariant() switch { "true" => true, "false" => false, _ => null };
+        static string Low(bool? b) => b == true ? "true" : "false";
+    }
+
+    private bool? MachineInDiff(string runDir, List<string> evidenceFiles, JsonObject d)
+    {
+        var task = Read(Path.Combine(runDir, "run-info.json"))?["task"]?.ToString() ?? "";
+        if (task.Length == 0) return null; // chạy lẻ: không có diff của task để so
+        var files = evidenceFiles.Count > 0 ? evidenceFiles : (d["stack_files"] as JsonArray)?.Select(x => x!.ToString()).ToList() ?? new();
+        if (files.Count == 0) return null;
+        var git = new Checks.Git(ctx, _proc);
+        var changed = git.ChangedFiles(TestRunner.SafeBase(git));
+        return TestRunner.InDiff(files, changed);
+    }
+
+    /// <summary>Các tham chiếu "file.cs:142" trong evidence, kèm đường dẫn tương đối trong repo (null = không thấy file hoặc dòng vượt quá file).</summary>
+    internal List<(string Text, string? Path)> SourceRefs(string evidence)
+    {
+        var res = new List<(string, string?)>();
+        foreach (Match m in Regex.Matches(evidence, @"([\w.\-\\/]+\.(?:cs|xaml|vb|cpp|h|fs)):(?:line\s*)?(\d+)", RegexOptions.IgnoreCase))
+        {
+            var rel = m.Groups[1].Value.Replace('\\', '/').TrimStart('/');
+            var line = int.Parse(m.Groups[2].Value);
+            var found = FindSource(rel);
+            var ok = found is not null && File.ReadLines(Path.Combine(ctx.Root, found)).Count() >= line;
+            res.Add((m.Value, ok ? found : null));
+        }
+        return res;
+    }
+
+    private string? FindSource(string rel)
+    {
+        if (File.Exists(Path.Combine(ctx.Root, rel))) return rel;
+        // đường dẫn tuyệt đối máy build / chỉ tên file: tìm file trong repo có đuôi khớp dài nhất
+        var parts = rel.Split('/');
+        var tracked = _proc.Run("git", new[] { "ls-files" }, ctx.Root, TimeSpan.FromMinutes(1));
+        var files = tracked.ExitCode == 0 && tracked.Lines.Length > 0
+            ? tracked.Lines.Select(l => l.Trim().Replace('\\', '/')).ToList()
+            : Directory.EnumerateFiles(ctx.Root, parts[^1], SearchOption.AllDirectories)
+                .Select(f => Path.GetRelativePath(ctx.Root, f).Replace('\\', '/'))
+                .Where(f => !Regex.IsMatch(f, @"(^|/)(bin|obj|\.git)/")).ToList();
+        for (var n = parts.Length; n >= 1; n--)
+        {
+            var tail = string.Join('/', parts[^n..]);
+            var hit = files.FirstOrDefault(f => f.Equals(tail, StringComparison.OrdinalIgnoreCase) || f.EndsWith("/" + tail, StringComparison.OrdinalIgnoreCase));
+            if (hit is not null) return hit;
+        }
+        return null;
     }
 
     private string SummaryLine(string dir, string autonomy)

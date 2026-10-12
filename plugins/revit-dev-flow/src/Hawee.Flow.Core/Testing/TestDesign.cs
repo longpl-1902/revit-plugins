@@ -169,7 +169,14 @@ public sealed class TestDesign(ProjectContext ctx, IProcRunner? runner = null)
         var args = new List<string> { "-Suite", string.Join(",", names.Select(P.Suite)), "-Block", ctx.TestBlockName };
         if (spec is not null && File.Exists(spec)) { args.Add("-Spec"); args.Add(spec); }
         if (hash) args.Add("-Hash");
-        return SuiteLintRun(args);
+        var res = SuiteLintRun(args);
+        var noTol = names.SelectMany(n => File.Exists(Path.Combine(P.Suite(n), "rules.md"))
+                ? RulesFile.Load(Path.Combine(P.Suite(n), "rules.md")).Rules.Where(r => !r.Pending
+                    && Regex.IsMatch(Text.Fold(r.Grader), @"^\W*(bang|trong|giao|khop baseline)\s*\(") && !r.Grader.Contains('±')).Select(r => $"{n}/{r.Id}")
+                : Enumerable.Empty<string>()).ToList();
+        if (noTol.Count == 0) return res;
+        var tol = ctx.TestBlock.Exists ? RunnerConfig.DefaultTol(ctx.TestBlock) : 0.01;
+        return res + $"\nWARN [rule-tol] {noTol.Count} luật so số thực không ghi '± x' → dùng sai số mặc định {tol.ToString(System.Globalization.CultureInfo.InvariantCulture)} mm: {string.Join(", ", noTol.Take(8))}{(noTol.Count > 8 ? " …" : "")}";
     }
 
     private string SuiteLintRun(IEnumerable<string> args)

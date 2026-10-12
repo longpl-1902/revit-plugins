@@ -246,6 +246,49 @@ public class KnowledgeTests
     }
 
     [Fact]
+    public void Tim_rule_theo_tu_khong_theo_chuoi_con()
+    {
+        using var repo = new TestRepo();
+        repo.Write("BIM_KB_Base/core/rules/extra.md", """
+            # Rule thêm
+
+            ## GEN-FILTER-001 — Lọc phần tử theo category, không theo tên · `medium`
+
+            - **Phải:** dùng BuiltInCategory, không so chuỗi tên; location của phần tử lấy từ LocationPoint.
+
+            ## REVIT-CROP-001 — Crop region của view phải đặt trong transaction · `high`
+
+            - **Phải:** đặt CropBox sau khi tắt crop annotation.
+            """);
+        var idx = new RulesIndex(repo.Ctx());
+        // "cắt" → "cat" không được khớp "category" / "location"; qua đồng nghĩa ra "crop"
+        var cut = idx.Search(new[] { "cắt khung" }).Select(h => h.Rule.Id).ToList();
+        Assert.DoesNotContain("GEN-FILTER-001", cut);
+        Assert.Equal("REVIT-CROP-001", cut.First());
+        // "view" không khớp "review"; tiếng Việt "giao dịch" ra rule transaction
+        Assert.Equal("REVIT-TXN-001", idx.Search(new[] { "giao dịch" }).First().Rule.Id);
+        // đường dẫn: tách CamelCase, bỏ src / tên project
+        var words = RulesIndex.PathKeywords(repo.Ctx(), "src/Hawee.Shop/Draw/CropRegionService.cs");
+        Assert.Contains("crop", words);
+        Assert.Contains("region", words);
+        Assert.DoesNotContain("src", words);
+        Assert.DoesNotContain("service", words);
+        Assert.Equal("REVIT-CROP-001", idx.Search(words).First().Rule.Id);
+    }
+
+    [Fact]
+    public void Tu_ghep_viet_lien_van_khop()
+    {
+        var d = new Terms.Doc("Dùng ViewTemplate khi tạo views; Transactions có tên");
+        Assert.True(d.Has("view"));
+        Assert.True(d.Has("template"));
+        Assert.True(d.Has("viewtemplate"));
+        Assert.True(d.Has("transaction"));
+        Assert.False(d.Has("temp"));
+        Assert.False(new Terms.Doc("code review checklist").Has("view"));
+    }
+
+    [Fact]
     public void Tim_known_issue()
     {
         using var repo = new TestRepo();

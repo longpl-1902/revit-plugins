@@ -55,7 +55,7 @@ public static class TestTools
     [McpServerTool(Name = "diagnosis_set"), Description("Xác nhận / sửa chẩn đoán lỗi gốc (máy chỉ gợi ý); chạy lại test-summary.")]
     public static string DiagnosisSet(string suite, [Description("CODE | INPUT | TRACKING | ENV | DECISION | UNKNOWN")] string @class,
         [Description("file:dòng hoặc dòng log nguyên văn")] string evidence,
-        [Description("true | false | null")] string in_task_diff = "null", [Description("KI-… nếu thuộc known-issue")] string ki = "",
+        [Description("trống = máy tính từ evidence × diff của task; khai khác máy → lỗi")] string in_task_diff = "", [Description("KI-… nếu thuộc known-issue; trống = giữ, - = xoá")] string ki = "",
         [Description("night: true | false")] string blocks_task = "", [Description("night: code | test_data")] string fix_target = "",
         string run = "")
         => Safe.Run(() =>

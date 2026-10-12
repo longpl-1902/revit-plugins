@@ -31,6 +31,8 @@ public sealed class RunnerConfig
     public string BuildCommand { get; init; } = "";
     public string AddinDll { get; init; } = "";
     public bool RequireSigned { get; init; }
+    /// <summary>Sai số mặc định (mm) cho bằng / trong / giao / khớp baseline khi luật không ghi "± x". đếm luôn so đúng.</summary>
+    public double DefaultTolMm { get; init; } = 0.01;
 
     public int MaxFixes => MaxRuns > 0 ? MaxRuns - 1 : 3;
 
@@ -68,6 +70,7 @@ public sealed class RunnerConfig
             BuildCommand = fix["build"].S(),
             AddinDll = fix["addin_dll"].S(),
             RequireSigned = fix["require_signed"].Bool(),
+            DefaultTolMm = DefaultTol(b),
         };
         var missing = new[] { ("mcp", cfg.Gateway), ("tools.list_instances", cfg.ToolListInstances), ("tools.call", cfg.ToolCall),
                               ("tools.open_document", cfg.ToolOpen), ("tools.document_info", cfg.ToolDocInfo), ("tools.close_document", cfg.ToolClose) }
@@ -75,6 +78,9 @@ public sealed class RunnerConfig
         if (missing.Count > 0) throw new FlowException($"{ctx.TestBlockName} thiếu: {string.Join(", ", missing)} — không tự bịa tên tool");
         return cfg;
     }
+
+    public static double DefaultTol(Y block) =>
+        double.TryParse(block["default_tol_mm"].S(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var tol) && tol >= 0 ? tol : 0.01;
 
     public string LogFile => DiagnoseLog.Length > 0 ? DiagnoseLog : RunIdLog;
 }

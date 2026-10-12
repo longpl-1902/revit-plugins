@@ -75,7 +75,7 @@ public sealed class TestRunner(
             ["suite"] = s.Suite.Name, ["run"] = stamp, ["session"] = session, ["purpose"] = req.Purpose, ["loop"] = loop,
             ["commit"] = git.Head(), ["branch"] = git.Branch(), ["autonomy"] = autonomy.Length > 0 ? autonomy : "ask",
             ["manual_steps"] = new JsonArray(s.Suite.ManualSteps.Select(m => (JsonNode)m).ToArray()),
-            ["runner"] = "hawee-flow",
+            ["runner"] = "hawee-flow", ["task"] = taskDir is not null ? Path.GetFileName(taskDir) : "",
         };
         WriteInfo(s);
 
@@ -500,13 +500,11 @@ public sealed class TestRunner(
             cls = Classify(text + " " + string.Join(" ", s.ToolErrors) + " " + s.PipelineError);
         }
         var frames = StackFiles(Path.Combine(s.Data, "addin.log"), line);
-        object? inDiff = null;
-        if (changedFiles is not null && frames.Count > 0)
-            inDiff = frames.Any(f => changedFiles.Any(c => c.EndsWith(f, StringComparison.OrdinalIgnoreCase) || Path.GetFileName(c).Equals(f, StringComparison.OrdinalIgnoreCase)));
+        var inDiff = changedFiles is not null ? InDiff(frames, changedFiles) : null;
         var d = new JsonObject
         {
             ["class"] = cls, ["evidence"] = evidence, ["first_error_line"] = line, ["ki"] = "",
-            ["in_task_diff"] = inDiff is bool b ? b : null, ["stack_files"] = new JsonArray(frames.Select(f => (JsonNode)f).ToArray()),
+            ["in_task_diff"] = inDiff, ["in_task_diff_machine"] = inDiff, ["stack_files"] = new JsonArray(frames.Select(f => (JsonNode)f).ToArray()),
             ["suggested_by"] = "hawee-flow (máy gợi ý — agent xác nhận / sửa bằng diagnosis_set)",
         };
         File.WriteAllText(Path.Combine(s.Data, "diagnosis.json"), d.ToJsonString(JsonOut));
@@ -520,6 +518,13 @@ public sealed class TestRunner(
         if (Regex.IsMatch(f, @"validation|khong hop le|invalid input|not found in csv|file ?not ?found|missing column|thieu cot|sai dinh dang|format")) return "INPUT";
         if (Regex.IsMatch(f, @"exception|null ?reference|invalidoperation|argument|index ?out ?of ?range|keynotfound")) return "CODE";
         return "UNKNOWN";
+    }
+
+    /// <summary>Có file nào trong <paramref name="files"/> (đuôi đường dẫn hoặc tên file) nằm trong diff của task; không có file nào để so → null.</summary>
+    internal static bool? InDiff(IReadOnlyCollection<string> files, IReadOnlyCollection<string> changedFiles)
+    {
+        if (files.Count == 0) return null;
+        return files.Any(f => changedFiles.Any(c => c.EndsWith(f, StringComparison.OrdinalIgnoreCase) || Path.GetFileName(c).Equals(f, StringComparison.OrdinalIgnoreCase)));
     }
 
     /// <summary>Tên file .cs trong stack trace quanh dòng lỗi đầu tiên ("in X:\...\File.cs:line N" / "File.cs:123").</summary>
@@ -551,8 +556,8 @@ public sealed class TestRunner(
         foreach (var rule in s.Rules.Active)
         {
             var sheets = SheetsOf(rule.AppliesTo);
-            var g = new Grader(data).Grade(rule, sheets);
-            var key = Text.Sha256(rule.Block + string.Join("|", g.FilesRead.Select(Text.Sha256File)));
+            var g = new Grader(data) { DefaultTol = cfg.DefaultTolMm }.Grade(rule, sheets);
+            var key = GradingKey(rule, g.FilesRead, s.Data, g.Verdict);
             keys[rule.Id] = key;
             if (g.Groups.Count == 0)
             {
@@ -602,6 +607,35 @@ public sealed class TestRunner(
 
     // ---- bước 7b, 8 -------------------------------------------------------------------------------------
 
+    /// <summary>Ảnh minh chứng cho một luật: ảnh của nhóm (sheet) có tên khớp từ trong cột Evidence, không có thì mọi ảnh của nhóm (FINAL_ trước).</summary>
+    internal static List<string> PickImages(IEnumerable<string> images, TestRule rule, string group)
+    {
+        var pool = images.Where(i => group == "*" || Path.GetFileName(i).Contains(group, StringComparison.OrdinalIgnoreCase)).ToList();
+        var tokens = Regex.Matches(rule.Evidence, @"[A-Za-z_][A-Za-z0-9_]{3,}").Select(m => m.Value).ToList();
+        var pick = pool.Where(i => tokens.Any(t => i.Contains(t, StringComparison.OrdinalIgnoreCase))).ToList();
+        return pick.Count > 0 ? pick : pool.OrderByDescending(i => Path.GetFileName(i).StartsWith("FINAL_", StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    /// <summary>
+    /// Khoá dùng lại verdict của agent: luật + nội dung file máy đã đọc + nội dung ảnh agent sẽ nhìn.
+    /// Luật cần mắt (ảnh) không đọc file nào khi chấm → phải băm ảnh, nếu không verdict cũ bị dùng lại sau khi code đổi.
+    /// Không có ảnh khớp → băm mọi file trong data\ (trừ grading\): đổi gì cũng chấm lại.
+    /// </summary>
+    internal static string GradingKey(TestRule rule, IEnumerable<string> filesRead, string dataDir, string verdict)
+    {
+        var parts = new List<string> { rule.Block };
+        parts.AddRange(filesRead.Select(Text.Sha256File));
+        if (verdict == Verdicts.Agent && Directory.Exists(dataDir))
+        {
+            var all = Directory.EnumerateFiles(dataDir, "*.*", SearchOption.AllDirectories)
+                .Where(f => !Path.GetRelativePath(dataDir, f).Replace('\\', '/').StartsWith("grading/", StringComparison.Ordinal)).ToList();
+            var imgs = PickImages(all.Where(f => Regex.IsMatch(f, @"\.(png|jpe?g)$", RegexOptions.IgnoreCase)), rule, "*");
+            var files = imgs.Count > 0 ? imgs : all;
+            parts.AddRange(files.Select(Text.Sha256File).OrderBy(h => h, StringComparer.Ordinal));
+        }
+        return Text.Sha256(string.Join("|", parts));
+    }
+
     private static void Evidence(RunState s, List<GradedRule> graded)
     {
         var images = Directory.Exists(s.Data)
@@ -621,10 +655,7 @@ public sealed class TestRunner(
                 index.AppendLine($"| {g.Rule.Id} | {g.Group} | {Text.Cell(Text.Clip(g.Expected, 60))} | {Text.Cell(Text.Clip(g.Actual, 60))} | {g.Verdict} | — |");
                 continue;
             }
-            var pool = images.Where(i => g.Group == "*" || Path.GetFileName(i).Contains(g.Group, StringComparison.OrdinalIgnoreCase)).ToList();
-            var tokens = Regex.Matches(g.Rule.Evidence, @"[A-Za-z_][A-Za-z0-9_]{3,}").Select(m => m.Value).ToList();
-            var pick = pool.Where(i => tokens.Any(t => i.Contains(t, StringComparison.OrdinalIgnoreCase))).ToList();
-            if (pick.Count == 0) pick = pool.OrderByDescending(i => Path.GetFileName(i).StartsWith("FINAL_", StringComparison.OrdinalIgnoreCase)).ToList();
+            var pick = PickImages(images, g.Rule, g.Group);
             var dir = Path.Combine(s.RunDir, "evidence", g.Rule.Id);
             foreach (var img in pick.Take(3))
             {
@@ -776,7 +807,7 @@ public sealed class TestRunner(
         s.Journal.Add((name, start, (s.EnvError ?? s.PipelineError) is { } e ? "dừng: " + Text.Clip(e, 100) : $"xong {sw.Elapsed.TotalSeconds:0} s"));
     }
 
-    private static string SafeBase(Git git)
+    internal static string SafeBase(Git git)
     {
         try { return git.IntegrationRef(null); } catch (FlowException) { return "HEAD"; }
     }

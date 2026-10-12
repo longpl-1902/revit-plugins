@@ -25,7 +25,29 @@ Mẫu spec/plan còn đi qua context hai lần (đọc mẫu + ghi file). Mỗi 
 2. Lặp lại với plugin `revit-dev-flow` cùng task.
 3. Ghi kết quả vào bảng "So sánh" ở cuối file này.
 
-## So sánh (điền sau khi đo)
+## Sau khi có hawee-flow (ước lượng tĩnh, cùng cách đếm)
+
+"Mới" = SKILL.md mỏng + file tham chiếu skill trỏ tới + output tool (đo trên repo thử: context.md 4,4K; gói câu hỏi
+~1,5K; doc_check ~1,5K; test_run ~2K) + **tài liệu task agent phải đọc để điền** (spec.md / plan.md dựng sẵn — cả hai
+cách đều phải đọc). Không tính đọc code (như nhau ở hai cách).
+
+| Bước | Cũ (ký tự) | Mới (ký tự) | Giảm |
+|---|---|---|---|
+| Bước 2 task-start | 70 508 | 6 001 | 92% |
+| Bước 3 spec (gồm đọc spec.md) | 72 147 | 15 311 | 79% |
+| Bước 3d test-design | 44 905 | 10 098 | 78% |
+| Bước 4 plan (gồm đọc plan.md) | 78 534 | 16 443 | 80% |
+| Bước 5–6, 8 implement + dod | 20 187 | 3 771 | 82% |
+| Bước 7 verify (một lượt) | 72 063 + 30–60 lời gọi MCP | 4 277 + 1 lời gọi test_run | 95% |
+| Bước 10 handoff | 6 537 | 3 707 | 44% |
+
+**Chi phí cố định mới:** định nghĩa 30 tool MCP của hawee-flow ≈ 13,3K ký tự JSON (tên + mô tả + schema) luôn trong
+context — trừ khi Claude Code hoãn nạp tool (MCP tool search) thì chỉ còn tên. Cũ: mô tả 11 skill 5,7K ký tự,
+cộng định nghĩa tool của `desktop-commander` (không còn cần cho agent vì runner tự điều khiển Revit — tắt MCP này ở
+phiên làm task để bù phần cố định).
+
+**Chưa đo được ở đây:** số token thật (cần tokenizer của Claude / `/context` trên máy dự án) và thời gian chạy Revit.
+Bảng dưới để điền khi đo thật:
 
 | Bước | Cũ (/context) | Mới (/context) | Giảm |
 |---|---|---|---|

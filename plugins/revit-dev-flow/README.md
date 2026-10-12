@@ -1,0 +1,104 @@
+# revit-dev-flow — luồng BIM_KB_Base cho add-in Revit, ít token
+
+Plugin Claude Code chạy luồng **bước 1 → 10, cổng G1 → G6, tier T0–T3** của BIM_KB_Base 0.8 nhưng chuyển phần
+tất định sang máy: một MCP server C# (`hawee-flow`) giữ trạng thái, dựng tài liệu, chạy lint/test, chạy suite Revit
+trọn vòng và chấm luật. Agent chỉ đọc "lát cắt" của bước đang làm và chỉ làm việc cần suy luận (khảo sát code, viết
+nội dung spec/plan/luật, hỏi người, sửa code, nhìn ảnh).
+
+Ước lượng nạp ngữ cảnh giảm 78–95% mỗi bước so với bộ skill cũ — chi tiết và cách đo thật: [docs/measurements.md](docs/measurements.md).
+
+## Cài đặt
+
+Yêu cầu: Windows, Claude Code, **.NET 8 SDK** (`dotnet`), Windows PowerShell 5.1; repo dự án có `hawee.project.yaml`
+và `BIM_KB_Base/` (giữ nguyên định dạng — plugin đọc, không đổi).
+
+```text
+/plugin marketplace add longpl-1902/revit-plugins
+/plugin install revit-dev-flow@revit-plugins
+```
+
+Lần đầu mở phiên, hook SessionStart dựng server vào `${CLAUDE_PLUGIN_DATA}/server` (`dotnet publish`, ~30 s; lần sau
+chỉ dựng lại khi mã nguồn plugin đổi). Tool `hawee-flow` chưa hiện → gõ `/mcp` để kết nối lại.
+
+**Chạy suite Revit (`test_run`)**: runner tự kết nối gateway `revit_test.mcp` (vd. `hawee`) và `revit_test.capture.tracking_mcp`
+(vd. `bim-tracking`) như một MCP client, theo cấu hình `.mcp.json` ở gốc repo dự án (hoặc `.hawee-flow/mcp.json`, hoặc
+biến `HAWEE_FLOW_MCP_<TÊN>` = JSON `{command, args, env}` / `{url}`). `desktop-commander` không còn cần cho agent.
+
+Biến môi trường tuỳ chọn: `HAWEE_FLOW_REPO` (gốc repo), `HAWEE_INTEGRATION_BRANCH` (nhánh tích hợp, mặc định tự tìm
+`origin/DEV`), `HAWEE_REVIT_TASKS_DIR`, `HAWEE_REVIT_DATASETS_DIR` (ghi đè `suites_dir` / `datasets_dir`),
+`HAWEE_FLOW_POST_EDIT=1` (bật hook lint gọn sau khi sửa — xem Hook).
+
+## Luồng: bước → lệnh → tool → cổng
+
+| Bước | Lệnh (skill) | Tool máy làm | Dừng ở |
+|---|---|---|---|
+| mọi lúc | `process` (tự nạp) | `flow_next`, `flow_status` | — |
+| 2 nạp ngữ cảnh | `/task-start` | `task_open`, `context_pack`, `rule_for`, `rule_get`, `kb_search` | Q0 tier |
+| 3a–3c spec | `/spec` | `pack_render`, `pack_apply`, `doc_check`, `gate_submit` | mỗi gói câu hỏi, G1 |
+| 3d sinh test | `/test-design` | `dataset_register`, `dataset_check`, `suite_scaffold`, `suite_lint`, `matrix_build` | bảng luật (G2) |
+| 4a–4c plan | `/plan` | `baseline_run`, `pack_render`, `pack_apply`, `doc_check`, `gate_submit` | gói 4a, walkthrough, G2 |
+| 5–6 code | `/implement` | `check_all`, `deviation_add`, `rule_for` | lệch lớn, hết 5 vòng |
+| 7 test Revit | `/verify` (subagent), `/revit-test` | `test_run`, `get_detail`, `record_verdict`, `diagnosis_set`, `matrix_build`, `issue_note_draft` | G3 |
+| 8 DoD | `/dod` | `dod_report` | G4 |
+| 9 review | `/review` | `review_packet` + agent `adversarial-reviewer` | G5 |
+| 10 đóng | `/handoff` | `handoff_draft`, `ki_report` | G6 |
+| bug B1–B9 | `/bug` | như trên, `task_open bug=true` | G1… |
+| cổng | `/gate` (chỉ người gọi) | `gate_record` | — |
+
+Mỗi bước: `flow_next` trả ≤ 15 dòng (việc, tool, điều kiện cổng, nhắc việc còn thiếu, điểm dừng) thay cho đọc
+`steps.md` / `gates.md` / `tiers.md` / `spec-plan.md`.
+
+## Máy làm gì, agent làm gì
+
+| Máy (C#, có test) | Agent |
+|---|---|
+| status.yaml (sửa đúng dòng, giữ comment), DEC-YYYY-NNN, cổng + khoá hash suite ở G2 | khảo sát code, `file:dòng` |
+| spec/plan dựng theo tier, gói câu hỏi YAML → markdown, áp "Q1: B" vào §14/§1.2/§12/§13 | viết nội dung spec/plan/luật, hỏi người |
+| doc-lint gom theo mã, kiểm tham chiếu / phủ AC / bất biến / baseline | phần rà cần suy luận (agent independent-reviewer) |
+| baseline, build + L0 so baseline theo tên test, lint, đếm vòng sửa, dod-report | sửa code |
+| dataset (chép + băm), dựng suite, suite-lint, ma trận AC | chọn số đo, nguồn kỳ vọng |
+| **test_run**: môi trường (AddInId trùng, DLL ký), Revit + bản sao, step có chặn tool cấm, tracking + điểm kiểm, cắt log, reconcile, chẩn đoán gợi ý, chấm "Máy chấm", evidence, report, dọn dẹp, test-summary | nhìn ảnh (`record_verdict`), xác nhận chẩn đoán (`diagnosis_set`), DECIDE mức night |
+| gói review, handoff nháp, ki-report | review đối kháng, điền handoff |
+
+"Máy chấm" hỗ trợ: `đếm`, `giao`, `trong`, `bằng`, `thứ tự`, `khớp baseline`, `có dòng`, `không có dòng`, `step xong`;
+`ảnh(...)` và cú pháp lạ chuyển cho agent. bbox đọc được: `{minX,minY,maxX,maxY}`, `{min:{x,y},max:{x,y}}`,
+`{x,y,width,height}`, `[x1,y1,x2,y2]` (mm). Dữ liệu không đúng hình → `NOT_MEASURABLE` kèm lý do, không bao giờ `PASS`.
+
+Định dạng file giữ nguyên để script cũ của Base vẫn dùng được: `status.yaml`, `suite.yaml`, `rules.md`,
+`dataset.yaml`, `run-info.json`, `result.json`, `data\step_status.json`, `data\checkpoints\<step>\outputs.json`,
+`data\reconcile.json`, `data\diagnosis.json`, `test-summary.json` (đã chạy thử với `host-test-reconcile.ps1` và
+`test-summary.ps1` thật). Dữ liệu và kết quả chạy vẫn nằm ở `D:\RevitTest\datasets\<bộ>` và `D:\RevitTest\tasks\<suite>\runs\<thời điểm>\`.
+
+## Hook
+
+| Hook | Sự kiện | Làm gì |
+|---|---|---|
+| `plugin-guard.ps1` | PreToolUse `gate_record`, Bash, PowerShell | ghi cổng → **hỏi người**; `git commit` / `git push` → **hỏi người** (G4); force-push, `--no-verify` → chặn. Lỗi hook → chặn |
+| `ensure-server.ps1` | SessionStart | dựng server khi cần, im lặng khi không có gì làm |
+| `post-edit-compact.ps1` | PostToolUse Edit/Write | chỉ khi `HAWEE_FLOW_POST_EDIT=1`: cùng lint với `post-edit-check.ps1` của Base nhưng ≤ 8 dòng — bật thì **bỏ** hook gốc trong `.claude/settings.json` |
+
+Hook `guard-protected-paths` / `post-edit-check` của dự án vẫn để ở `.claude/settings.json` như cũ (plugin không lặp).
+An toàn khi chạy Revit (tool cấm, `allow_draw`, `setup_tools` có người duyệt, document phải nằm trong `RUN_DIR`, chỉ kill
+đúng PID, hash model gốc trước = sau) nằm **trong runner** — agent không gọi tool ghi vào Revit nữa.
+
+## Giới hạn hiện tại
+
+- Chưa chạy trên Revit thật: runner được kiểm bằng gateway / tracking / tiến trình giả (`src/Hawee.Flow.Tests`). Lần đầu nên chạy song song với `/revit-test` cũ trên một suite đã có kết quả để so `result.json` và kết luận.
+- Gateway và bim-tracking đang gọi qua MCP client (giao thức chuẩn). Có protocol pipe / HTTP API riêng thì thêm một `IToolClient`, phần còn lại không đổi.
+- Tên tham số `run_timeline` / `run_outputs` dùng như skill cũ (`externalRunId`, `StepCode`, `Page`); hình dạng kết quả đọc linh hoạt theo tên khoá. Khác → sửa `JsonScan`.
+- Chưa ghi run tracking cho **chính lần test** (`start_envelope_run` cần định danh dự án); run của add-in vẫn được đọc đầy đủ.
+- `capture.source: sql` chưa hỗ trợ trong runner (báo để agent thu tay).
+- `ensure-server` cần .NET 8 SDK trên máy chạy Claude Code.
+
+## Phát triển
+
+```text
+cd plugins/revit-dev-flow/src
+dotnet build
+dotnet test                       # 64 test, chạy được cả trên Linux
+dotnet run --project Hawee.Flow.Server -- tools          # liệt kê tool
+dotnet run --project Hawee.Flow.Server -- call flow_next "{}"   # gọi một tool từ dòng lệnh
+```
+
+Quy trình đổi → sửa `src/Hawee.Flow.Core/Flow/flow.yaml` (dự án ghi đè được bằng `.hawee-flow/flow.yaml`).
+Không dùng ký hiệu ①–⑩ trong văn bản (lỗi font trên terminal) — test kiểm.

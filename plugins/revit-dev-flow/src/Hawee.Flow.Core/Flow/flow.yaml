@@ -121,9 +121,9 @@ states:
     name: CI + review đối kháng
     skill: /review
     do:
-      - review_packet -> agent adversarial-reviewer (phiên riêng) -> review-<ngày>.md.
+      - review_packet -> agent adversarial-reviewer (phiên riêng) -> review-<ngày>.md -> gate_submit G5.
       - MR ≤ ~400 dòng code; refactor tách khỏi đổi hành vi.
-    tools: [review_packet]
+    tools: [review_packet, gate_submit]
     stop: Chờ G5.
     next: g5
 

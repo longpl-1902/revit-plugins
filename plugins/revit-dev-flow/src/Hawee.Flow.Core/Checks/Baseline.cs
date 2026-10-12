@@ -25,7 +25,7 @@ public sealed class Baseline(ProjectContext ctx, IProcRunner? runner = null)
         if (level.Length > 0) { args.Add("-Level"); args.Add(level); }
         if (only.Length > 0) { args.Add("-Only"); args.Add(only); }
         var r = Ps.RunFile(_run, script, args, ctx.Root, TimeSpan.FromMinutes(timeoutMin));
-        var json = r.Lines.Select(l => Regex.Match(l, @"\[test-baseline\] ghi (.+baseline\.json)\s*$")).FirstOrDefault(m => m.Success)?.Groups[1].Value.Trim();
+        var json = r.Lines.Select(l => Regex.Match(l, @"\[test-baseline\] ghi (.+\.json)\s*$")).FirstOrDefault(m => m.Success)?.Groups[1].Value.Trim();
         if (json is null || !File.Exists(json))
             throw new FlowException($"test-baseline không ra baseline.json (exit {r.ExitCode}): {Text.Clip(string.Join(" | ", r.Lines.TakeLast(3)), 300)}");
         return Load(json);

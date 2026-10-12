@@ -67,11 +67,11 @@ states:
     name: Test trước, rồi code; build/test/lint
     skill: /implement
     do:
-      - Nhánh <user>_<issue>-<slug> từ nhánh tích hợp. Mỗi bước plan: test viết trước (thấy FAIL) -> code -> check_all.
+      - Nhánh <user>_<issue>-<slug> từ nhánh tích hợp. Mỗi bước plan: test viết trước (thấy FAIL) -> code -> check_all (quick).
       - Fail mới (không thuộc known_failures) -> sửa, tối đa 5 vòng (check_all đếm). Không nới test.
       - Lệch nhỏ -> plan §13; lệch lớn -> dừng, quay G2/G1.
       - Xong mọi bước -> /verify (task chạy trong Revit) hoặc /dod.
-    tools: [check_all, rule_for, rule_get]
+    tools: [check_all, rule_for, rule_get, deviation_add]
     stop: Lệch lớn; hết 5 vòng.
     next: test
 

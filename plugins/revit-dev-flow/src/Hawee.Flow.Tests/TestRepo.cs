@@ -182,6 +182,23 @@ public sealed class TestRepo : IDisposable
             | Ngày | Lệch gì | Vì sao | Mức | Cần duyệt lại (G1/G2)? |
             |---|---|---|---|---|
             """);
+        Write("BIM_KB_Base/core/templates/bugfix-spec.md", """
+            # Bug — <tiêu đề ngắn> (#<issue>)
+
+            - Issue: #<số> · Ngày: <YYYY-MM-DD> · Tier: T1 · Trạng thái: thu bằng chứng | tái hiện
+
+            > Cách làm: `core/process/bug.md`.
+
+            ## 1. Bằng chứng
+
+            | Mục | Giá trị |
+            |---|---|
+
+            ## 7. Bản ghi trao đổi & quyết định
+
+            | # | Câu hỏi | Trả lời | Ai | Ngày | DEC |
+            |---|---|---|---|---|---|
+            """);
         Write("BIM_KB_Base/core/templates/decision-log.md", """
             # Nhật ký quyết định — <dự án>
 
@@ -250,11 +267,13 @@ public sealed class FakeRunner : IProcRunner
     public List<(string File, List<string> Args)> Calls { get; } = new();
     public Dictionary<string, ProcResult> ByScript { get; } = new();
     public ProcResult Default { get; set; } = new(0, "", false);
+    public Func<string, List<string>, ProcResult?>? Handler { get; set; }
 
     public ProcResult Run(string file, IEnumerable<string> args, string cwd, TimeSpan? timeout = null, IDictionary<string, string>? env = null)
     {
         var a = args.ToList();
         Calls.Add((file, a));
+        if (Handler?.Invoke(file, a) is { } h) return h;
         foreach (var (key, res) in ByScript)
             if (a.Any(x => x.EndsWith(key, StringComparison.OrdinalIgnoreCase)) || file.EndsWith(key)) return res;
         return Default;

@@ -14,13 +14,17 @@ public sealed class Closing(ProjectContext ctx, IProcRunner? runner = null)
 {
     private readonly IProcRunner _run = runner ?? ProcRunner.Instance;
 
-    public string ReviewPacket(string? task, string? baseRef, int maxDiffLines = 4000)
+    /// <summary>File sinh tự động: không review, chỉ tốn token.</summary>
+    internal static readonly string[] GeneratedSpecs =
+        { ":(exclude,glob)**/*.Designer.cs", ":(exclude,glob)**/*.g.cs", ":(exclude,glob)**/*.g.i.cs", ":(exclude,glob)**/*.resx", ":(exclude,glob)**/*.AssemblyInfo.cs" };
+
+    public string ReviewPacket(string? task, string? baseRef, int maxDiffLines = 1500)
     {
         var dir = ctx.ResolveTask(task);
         var git = new Git(ctx, _run);
         var bref = git.IntegrationRef(baseRef);
         var stat = _run.Run("git", new[] { "diff", "--stat", bref }, ctx.Root, TimeSpan.FromMinutes(1)).Lines;
-        var diff = _run.Run("git", new[] { "diff", "-U5", bref, "--", ".", ":(exclude)docs/tasks" }, ctx.Root, TimeSpan.FromMinutes(2)).Output.Replace("\r", "").Split('\n');
+        var diff = _run.Run("git", new[] { "diff", "-U3", bref, "--", ".", ":(exclude)docs/tasks" }.Concat(GeneratedSpecs), ctx.Root, TimeSpan.FromMinutes(2)).Output.Replace("\r", "").Split('\n');
         var (added, deleted) = git.DiffSize(bref);
         var plan = new MdDoc(Path.Combine(dir, "plan.md"));
         var spec = new MdDoc(Path.Combine(dir, "spec.md"));
@@ -46,7 +50,11 @@ public sealed class Closing(ProjectContext ctx, IProcRunner? runner = null)
         sb.AppendLine("```");
         sb.AppendLine("```diff");
         foreach (var l in diff.Take(maxDiffLines)) sb.AppendLine(l);
-        if (diff.Length > maxDiffLines) sb.AppendLine($"… cắt {diff.Length - maxDiffLines} dòng — đọc tiếp bằng git diff {bref} -- <file>");
+        if (diff.Length > maxDiffLines)
+        {
+            var rest = diff.Skip(maxDiffLines).Select(l => Regex.Match(l, @"^diff --git a/(\S+)")).Where(m => m.Success).Select(m => m.Groups[1].Value).ToList();
+            sb.AppendLine($"… cắt {diff.Length - maxDiffLines} dòng — đọc khi cần: git diff {bref} -- <file>{(rest.Count > 0 ? $"; file chưa có trong gói: {string.Join(", ", rest.Take(20))}{(rest.Count > 20 ? " …" : "")}" : "")}");
+        }
         sb.AppendLine("```");
         var file = Path.Combine(dir, $"review-packet-{ctx.Clock.Now:yyyy-MM-dd}.md");
         Text.Write(file, sb.ToString());
@@ -57,7 +65,7 @@ public sealed class Closing(ProjectContext ctx, IProcRunner? runner = null)
     private static string Section(MdDoc d, string num)
     {
         var t = d.SectionText(num).Trim();
-        return t.Length == 0 ? "(trống)\n" : Text.Clip(t, 6000) + "\n";
+        return t.Length == 0 ? "(trống)\n" : t.Length <= 3000 ? t + "\n" : Text.Clip(t, 3000) + $"\n(cắt — đọc đủ ở {Path.GetFileName(d.Path)} §{num})\n";
     }
 
     private IEnumerable<string> Checklist()

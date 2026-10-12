@@ -51,7 +51,8 @@ public sealed class FlowEngine(ProjectContext ctx)
         return sb.ToString().TrimEnd();
     }
 
-    public string Next(string? task)
+    /// <param name="brief">true = chỉ dòng tiêu đề, nhắc việc còn thiếu (!) và điểm dừng — skill của bước đã nói việc cần làm.</param>
+    public string Next(string? task, bool brief = false)
     {
         var dir = ctx.ResolveTask(task);
         var st = StatusFile.ForTask(dir).Data;
@@ -60,9 +61,12 @@ public sealed class FlowEngine(ProjectContext ctx)
         if (!node.Exists) throw new FlowException($"state '{state}' không có trong flow.yaml");
         var sb = new StringBuilder();
         sb.AppendLine($"Bước {node["step"].S()} — {node["name"].S()}{(node["skill"].S() is { Length: > 0 } sk ? $" ({sk})" : "")} · task {Path.GetFileName(dir)} · {st["tier"].S("T2")}");
-        foreach (var d in node["do"].Strings()) sb.AppendLine("- " + d);
-        if (node["tools"].Strings() is { Count: > 0 } tools) sb.AppendLine("Tool: " + string.Join(", ", tools));
-        if (node["limits"].S() is { Length: > 0 } lim) sb.AppendLine("Giới hạn: " + lim);
+        if (!brief)
+        {
+            foreach (var d in node["do"].Strings()) sb.AppendLine("- " + d);
+            if (node["tools"].Strings() is { Count: > 0 } tools) sb.AppendLine("Tool: " + string.Join(", ", tools));
+            if (node["limits"].S() is { Length: > 0 } lim) sb.AppendLine("Giới hạn: " + lim);
+        }
         if (node["gate"].S() is { Length: > 0 } gate)
         {
             var g = _flow["gates"][gate];

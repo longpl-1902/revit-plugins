@@ -14,7 +14,7 @@ public class Phase5Tests
             if (file != "git") return null;
             if (args.Contains("--verify")) return new ProcResult(args.Any(a => a.StartsWith("origin/DEV")) ? 0 : 1, "", false);
             if (args.Contains("--stat")) return new ProcResult(0, " src/A.cs | 10 +++++-----\n 1 file changed\n", false);
-            if (args.Contains("-U5")) return new ProcResult(0, "diff --git a/src/A.cs b/src/A.cs\n+new line\n-old line\n", false);
+            if (args.Contains("-U3")) return new ProcResult(0, "diff --git a/src/A.cs b/src/A.cs\n+new line\n-old line\n", false);
             if (args.Contains("--numstat")) return new ProcResult(0, "5\t5\tsrc/A.cs\n", false);
             if (args.Contains("--oneline")) return new ProcResult(0, "abc1234 feat(keyplan): x\n", false);
             if (args.Contains("--porcelain")) return new ProcResult(0, "", false);
@@ -35,7 +35,9 @@ public class Phase5Tests
         Assert.Contains("+new line", text);
         Assert.Contains("## Checklist G5", text);
         Assert.Contains("## Plan §5.6 — Bất biến", text);
-        Assert.Contains("docs/tasks", repo.Runner.Calls.Single(c => c.Args.Contains("-U5")).Args.Last());
+        var diffArgs = repo.Runner.Calls.Single(c => c.Args.Contains("-U3")).Args;
+        Assert.Contains(":(exclude)docs/tasks", diffArgs);
+        Assert.Contains(":(exclude,glob)**/*.Designer.cs", diffArgs);
     }
 
     [Fact]

@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # /spec $ARGUMENTS
 
-Gọi `flow_next` trước. Spec đã dựng sẵn theo tier (`spec.md`); chỉ điền nội dung, không chép lại mẫu.
+Gọi `flow_next brief=true` trước. Spec đã dựng sẵn theo tier (`spec.md`); chỉ điền nội dung, không chép lại mẫu.
 Luôn: mọi khẳng định hiện trạng có `file:dòng`/log; không hỏi điều tự tìm được hoặc đã có trong decision log / §14
 (`kb_search`, grep `docs/decisions/decision-log.md`); không viết "cách làm" vào spec.
 

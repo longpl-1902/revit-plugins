@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # /plan $ARGUMENTS
 
-Gọi `flow_next` trước (điều kiện vào: G1 PASS/CONCERNS). Plan đã dựng sẵn theo tier — chỉ điền.
+Gọi `flow_next brief=true` trước (điều kiện vào: G1 PASS/CONCERNS). Plan đã dựng sẵn theo tier — chỉ điền.
 Task chạy trong Revit + spec có AC đo bằng suite mà chưa có suite → `/test-design` trước.
 
 **4a — thiết kế cùng DEV**

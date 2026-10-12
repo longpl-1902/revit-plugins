@@ -32,7 +32,7 @@ public static class CheckTools
 public static class ClosingTools
 {
     [McpServerTool(Name = "review_packet"), Description("Bước 9: gói review (checklist, AC, plan §5/§7, diff) cho agent adversarial-reviewer.")]
-    public static string ReviewPacket(string task = "", string base_ref = "", int max_diff_lines = 4000)
+    public static string ReviewPacket(string task = "", string base_ref = "", int max_diff_lines = 1500)
         => Safe.Run(() => new Closing(Safe.Ctx()).ReviewPacket(task, base_ref, max_diff_lines));
 
     [McpServerTool(Name = "handoff_draft"), Description("Bước 10: dựng handoff từ git/status/dod/test; agent điền ô <…>.")]

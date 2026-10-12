@@ -390,6 +390,30 @@ public class RunnerTests : IDisposable
     }
 
     [Fact]
+    public void Cau_hinh_mcp_tu_claude_json()
+    {
+        using var repo = Repo();
+        var cj = Path.Combine(_root, ".claude.json");
+        var key = repo.Root.Replace('\\', '/');
+        Text.Write(cj, $$"""
+            {
+              "mcpServers": { "bim-tracking": { "type": "http", "url": "http://localhost:5000/mcp" }, "hawee": { "command": "user-cap" } },
+              "projects": {
+                "/khac/repo": { "mcpServers": { "hawee": { "command": "sai-du-an" } } },
+                "{{key}}": { "mcpServers": { "hawee": { "command": "hawee-gateway.exe", "args": ["--pipe"] } } }
+              }
+            }
+            """);
+        // cấp local (đúng repo) thắng cấp user; server chỉ có ở cấp user vẫn tìm được
+        Assert.Equal("hawee-gateway.exe", McpToolClient.ResolveConfig(repo.Ctx(), "hawee", cj)!["command"]!.ToString());
+        Assert.Equal("http://localhost:5000/mcp", McpToolClient.ResolveConfig(repo.Ctx(), "bim-tracking", cj)!["url"]!.ToString());
+        // .mcp.json của repo đứng trước
+        repo.Write(".mcp.json", """{ "mcpServers": { "hawee": { "command": "tu-repo" } } }""");
+        Assert.Equal("tu-repo", McpToolClient.ResolveConfig(repo.Ctx(), "hawee", cj)!["command"]!.ToString());
+        Assert.Null(McpToolClient.ResolveConfig(repo.Ctx(), "khong-co", cj));
+    }
+
+    [Fact]
     public void Khoa_cham_anh_doi_khi_anh_doi()
     {
         var data = Directory.CreateDirectory(Path.Combine(_root, "data")).FullName;

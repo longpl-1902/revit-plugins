@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # /bug $ARGUMENTS
 
-Chưa có folder: `task_open bug=true tier=T1` (bugfix-spec dựng sẵn). Gọi `flow_next` đầu mỗi phiên.
+Chưa có folder: `task_open bug=true tier=T1` (bugfix-spec dựng sẵn). Gọi `flow_next brief=true` đầu mỗi phiên.
 
 - **B1 bằng chứng** (spec §1): issue, ảnh, version, dữ liệu, bước thao tác; log → dòng lỗi **đầu tiên** trong khoảng thời gian (không lấy lỗi cuối). Dữ liệu khách chỉ khi được phép.
 - **B2 phân loại**: Bug / Defect(GapBA → chuyển BA, dừng) / Not bug / input. `kb_search` theo triệu chứng + vùng code; cùng nguyên nhân KI cũ → **lặp**: ghi `Lặp: lần n`, chuẩn bị postmortem.

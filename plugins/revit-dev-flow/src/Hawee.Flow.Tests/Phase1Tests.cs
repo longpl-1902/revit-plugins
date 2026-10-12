@@ -328,6 +328,11 @@ public class FlowDefTests
         var next = new FlowEngine(repo.Ctx()).Next("5");
         Assert.StartsWith("Bước 2", next);
         Assert.True(next.Split('\n').Length <= 15);
+        var brief = new FlowEngine(repo.Ctx()).Next("5", brief: true);
+        Assert.StartsWith("Bước 2", brief);
+        Assert.Contains("Dừng:", brief);
+        Assert.DoesNotContain("Tool:", brief);
+        Assert.True(brief.Length < next.Length / 2, brief);
     }
 }
 

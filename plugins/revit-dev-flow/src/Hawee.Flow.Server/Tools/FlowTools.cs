@@ -31,8 +31,8 @@ public static class FlowTools
         => Safe.Run(() => new FlowEngine(Safe.Ctx()).Status(task));
 
     [McpServerTool(Name = "flow_next"), Description("Việc của bước hiện tại + tool + điểm DỪNG. Gọi đầu mỗi phiên thay vì đọc tài liệu quy trình.")]
-    public static string FlowNext(string task = "")
-        => Safe.Run(() => new FlowEngine(Safe.Ctx()).Next(task));
+    public static string FlowNext(string task = "", [Description("true = chỉ nhắc việc còn thiếu + điểm dừng (khi skill của bước đã nạp)")] bool brief = false)
+        => Safe.Run(() => new FlowEngine(Safe.Ctx()).Next(task, brief));
 
     [McpServerTool(Name = "task_open"), Description("Bước 2: tạo folder task (status, spec/plan theo tier) + context.md. Không ghi đè.")]
     public static string TaskOpen(

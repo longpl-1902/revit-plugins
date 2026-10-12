@@ -21,8 +21,9 @@ Lần đầu mở phiên, hook SessionStart dựng server vào `${CLAUDE_PLUGIN_
 chỉ dựng lại khi mã nguồn plugin đổi). Tool `hawee-flow` chưa hiện → gõ `/mcp` để kết nối lại.
 
 **Chạy suite Revit (`test_run`)**: runner tự kết nối gateway `revit_test.mcp` (vd. `hawee`) và `revit_test.capture.tracking_mcp`
-(vd. `bim-tracking`) như một MCP client, theo cấu hình `.mcp.json` ở gốc repo dự án (hoặc `.hawee-flow/mcp.json`, hoặc
-biến `HAWEE_FLOW_MCP_<TÊN>` = JSON `{command, args, env}` / `{url}`). `desktop-commander` không còn cần cho agent.
+(vd. `bim-tracking`) như một MCP client. Thứ tự tìm cấu hình: biến `HAWEE_FLOW_MCP_<TÊN>` = JSON `{command, args, env}` /
+`{url}` → `.mcp.json` ở gốc repo dự án → `.hawee-flow/mcp.json` → `~/.claude.json` (khai bằng `claude mcp add`, cấp local
+của repo rồi cấp user). Khai server ở đâu cho Claude Code thì runner cũng tìm được, không cần chép. `desktop-commander` không còn cần cho agent.
 
 Biến môi trường tuỳ chọn: `HAWEE_FLOW_REPO` (gốc repo), `HAWEE_INTEGRATION_BRANCH` (nhánh tích hợp, mặc định tự tìm
 `origin/DEV`), `HAWEE_REVIT_TASKS_DIR`, `HAWEE_REVIT_DATASETS_DIR` (ghi đè `suites_dir` / `datasets_dir`),

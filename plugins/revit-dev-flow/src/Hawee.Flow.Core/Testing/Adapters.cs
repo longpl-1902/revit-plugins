@@ -28,7 +28,7 @@ public interface IHostProcess
 }
 
 /// <summary>
-/// MCP client tới một server khai trong .mcp.json của repo dự án (hoặc biến HAWEE_FLOW_MCP_&lt;TÊN&gt; = JSON cấu hình).
+/// MCP client tới một server khai trong .mcp.json của repo dự án, .hawee-flow/mcp.json, ~/.claude.json (claude mcp add) hoặc biến HAWEE_FLOW_MCP_&lt;TÊN&gt; = JSON cấu hình.
 /// Runner gọi gateway / tracking trực tiếp bằng kênh này — agent không phải gọi từng tool, output không vào context.
 /// Khi có protocol pipe / HTTP API riêng, thêm một IToolClient khác, phần còn lại không đổi.
 /// </summary>
@@ -40,7 +40,7 @@ public sealed class McpToolClient : IToolClient
     public static async Task<McpToolClient> Connect(ProjectContext ctx, string serverName, CancellationToken ct = default)
     {
         var cfg = ResolveConfig(ctx, serverName) ?? throw new FlowException(
-            $"không thấy cấu hình MCP '{serverName}' (thêm vào .mcp.json của repo, hoặc đặt HAWEE_FLOW_MCP_{Env(serverName)} = JSON {{command,args,env}} / {{url}})");
+            $"không thấy cấu hình MCP '{serverName}' (thêm vào .mcp.json của repo hoặc `claude mcp add`, hoặc đặt HAWEE_FLOW_MCP_{Env(serverName)} = JSON {{command,args,env}} / {{url}})");
         IClientTransport transport;
         if (cfg["url"]?.GetValue<string>() is { Length: > 0 } url)
             transport = new HttpClientTransport(new HttpClientTransportOptions { Endpoint = new Uri(url), Name = serverName });
@@ -67,7 +67,7 @@ public sealed class McpToolClient : IToolClient
 
     private static string Env(string name) => new string(name.ToUpperInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '_').ToArray());
 
-    internal static JsonObject? ResolveConfig(ProjectContext ctx, string serverName)
+    internal static JsonObject? ResolveConfig(ProjectContext ctx, string serverName, string? claudeJson = null)
     {
         if (Environment.GetEnvironmentVariable("HAWEE_FLOW_MCP_" + Env(serverName)) is { Length: > 0 } json)
             return JsonNode.Parse(json) as JsonObject;
@@ -77,7 +77,31 @@ public sealed class McpToolClient : IToolClient
             var root = JsonNode.Parse(File.ReadAllText(file)) as JsonObject;
             if (root?["mcpServers"]?[serverName] is JsonObject o) return o;
         }
+        // khai bằng `claude mcp add`: ~/.claude.json — cấp local (projects["<repo>"].mcpServers) rồi cấp user (mcpServers)
+        if ((claudeJson ?? ClaudeJson()) is { } user && File.Exists(user) && JsonNode.Parse(File.ReadAllText(user)) is JsonObject cj)
+        {
+            if (cj["projects"] is JsonObject projects)
+            {
+                var root = Norm(ctx.Root);
+                var local = projects.Where(p => p.Value?["mcpServers"]?[serverName] is JsonObject)
+                    .Where(p => Norm(p.Key) is var k && (root.Equals(k, StringComparison.OrdinalIgnoreCase) || root.StartsWith(k + "/", StringComparison.OrdinalIgnoreCase)))
+                    .OrderByDescending(p => p.Key.Length).FirstOrDefault();
+                if (local.Value?["mcpServers"]?[serverName] is JsonObject lo) return lo;
+            }
+            if (cj["mcpServers"]?[serverName] is JsonObject uo) return uo;
+        }
         return null;
+
+        static string Norm(string p) => p.Replace('\\', '/').TrimEnd('/');
+    }
+
+    /// <summary>Đường dẫn ~/.claude.json (HAWEE_FLOW_CLAUDE_JSON → $CLAUDE_CONFIG_DIR/.claude.json → thư mục người dùng).</summary>
+    private static string? ClaudeJson()
+    {
+        if (Environment.GetEnvironmentVariable("HAWEE_FLOW_CLAUDE_JSON") is { Length: > 0 } f) return f;
+        if (Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR") is { Length: > 0 } d && File.Exists(Path.Combine(d, ".claude.json"))) return Path.Combine(d, ".claude.json");
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        return home.Length > 0 ? Path.Combine(home, ".claude.json") : null;
     }
 
     public async Task<ToolCall> Call(string tool, JsonObject args, TimeSpan timeout)

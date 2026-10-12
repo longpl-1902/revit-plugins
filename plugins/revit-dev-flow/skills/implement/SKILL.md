@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # /implement $ARGUMENTS
 
-Điều kiện: G2 PASS (`flow_next` báo state code). Nhánh `<user>_<issueId>-<slug>` từ nhánh tích hợp (chưa có thì tạo; không commit).
+Điều kiện: G2 PASS (`flow_next brief=true` báo state code). Nhánh `<user>_<issueId>-<slug>` từ nhánh tích hợp (chưa có thì tạo; không commit).
 
 Với mỗi bước ở plan §6 (theo thứ tự, không nhảy bước):
 1. Đọc đúng khối bước đó (file + bản đôi R2022, thay đổi, test viết trước, lệnh kiểm + kỳ vọng số, dừng nếu).

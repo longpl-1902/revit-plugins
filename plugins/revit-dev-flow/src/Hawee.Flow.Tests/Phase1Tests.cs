@@ -287,3 +287,9 @@ public class FlowDefTests
         Assert.True(next.Split('\n').Length <= 15);
     }
 }
+
+public class TextTests
+{
+    [Fact]
+    public void Fold_bo_dau() => Assert.Equal("bo qua dong", Text.Fold("Bỏ qua Đồng"));
+}

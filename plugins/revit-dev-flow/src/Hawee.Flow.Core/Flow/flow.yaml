@@ -23,8 +23,8 @@ states:
       - 3a Khảo sát code thật (file:dòng) -> ghi spec §2. Viết gói câu hỏi 1 (YAML) -> pack_render. DỪNG.
       - Có trả lời -> pack_apply (tự ghi §14 + DEC). 3b Viết §3-§8 (K1-K9 + kịch bản bắt buộc của profile, AC có "Đo bằng").
       - Gói 2 chỉ hỏi điểm chưa chắc -> pack_render. DỪNG. Có trả lời -> pack_apply.
-      - 3c doc_check(spec) tới sạch; rà độc lập theo tier (agent independent-reviewer). Trình G1.
-    tools: [doc_scaffold, pack_render, pack_apply, doc_check, rule_get]
+      - 3c doc_check(spec) tới sạch; rà độc lập theo tier (agent independent-reviewer). gate_submit G1.
+    tools: [doc_scaffold, pack_render, pack_apply, doc_check, rule_get, gate_submit]
     stop: Mỗi gói câu hỏi; cuối cùng chờ G1.
     limits: Tối đa 3 gói; T1 mỗi gói ≤ 3 câu, T2+ ≤ 10 câu.
     next: g1
@@ -47,8 +47,8 @@ states:
       - 3d (khi task chạy trong Revit và spec có AC đo bằng suite) -> /test-design trước plan.
       - 4a baseline_run trên commit gốc; ≥ 2 phương án + caller tìm thật; thiết kế + bất biến; gói 4a (gồm mức tự chủ ask/night). DỪNG.
       - 4b bước code dạng khối 6 dòng, ma trận AC -> bước -> test; walkthrough với người sẽ code. DỪNG.
-      - 4c doc_check(plan) tới sạch; rà độc lập theo tier. Trình G2.
-    tools: [baseline_run, doc_scaffold, pack_render, pack_apply, doc_check, suite_lint, dataset_register, matrix_build]
+      - 4c doc_check(plan) tới sạch; rà độc lập theo tier. gate_submit G2.
+    tools: [baseline_run, doc_scaffold, pack_render, pack_apply, doc_check, dataset_register, suite_scaffold, suite_lint, matrix_build, gate_submit]
     stop: Gói 4a, walkthrough, chờ G2.
     next: g2
 

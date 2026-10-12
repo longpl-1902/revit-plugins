@@ -5,7 +5,8 @@ namespace Hawee.Flow.Core.Infra;
 
 public sealed record ProcResult(int ExitCode, string Output, bool TimedOut)
 {
-    public string[] Lines => Output.Replace("\r", "").Split('\n', StringSplitOptions.RemoveEmptyEntries);
+    public string[] Lines => System.Text.RegularExpressions.Regex.Replace(Output, @"\x1b\[[0-9;]*[A-Za-z]", "")
+        .Replace("\r", "").Split('\n', StringSplitOptions.RemoveEmptyEntries);
 }
 
 public interface IProcRunner

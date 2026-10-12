@@ -50,6 +50,10 @@ public static class FlowTools
     public static string ContextPackTool(string task = "", [Description("Từ khoá thêm")] string keywords = "", string repo = "")
         => Safe.Run(() => new ContextPack(Safe.Ctx(repo)).Build(task, keywords));
 
+    [McpServerTool(Name = "gate_submit"), Description("Trình cổng G1–G6: máy kiểm điều kiện cứng (câu CHẶN, doc_check, baseline, luật 'chờ', mức tự chủ, test-summary, dod-report) rồi đặt state chờ duyệt. Không ghi quyết định.")]
+    public static string GateSubmitTool([Description("G1..G6")] string gate, string task = "", string repo = "")
+        => Safe.Run(() => new GateSubmit(Safe.Ctx(repo)).Submit(task, gate));
+
     [McpServerTool(Name = "gate_record"), Description("Ghi quyết định cổng G1–G6 (status.yaml + DEC trong decision log) và chuyển state. CHỈ khi người duyệt đã nói rõ quyết định; hook sẽ hỏi lại người trước khi chạy.")]
     public static string GateRecord(
         [Description("G1..G6")] string gate,

@@ -152,7 +152,7 @@ public sealed class TestDesign(ProjectContext ctx, IProcRunner? runner = null)
         return (exists ? $"Suite {name} đã có → ghi bản đề xuất {Path.GetFileName(suiteFile)} + {Path.GetFileName(rulesFile)} (giữ ID luật cũ, luật mới lấy số kế tiếp, luật bỏ ghi retired)\n"
                        : $"Đã dựng {suiteDir}\\suite.yaml + rules.md từ mẫu profile\n") +
                "Viết: steps (tool + args theo spec §7, đường dẫn '{dataset}\\…' trong nháy đơn), luật R-xx đủ trường (AC, Kiểm, Kỳ vọng có nguồn, Cách đo, Sai số — chưa có thì 'chờ', Mức, Máy chấm, Ảnh minh chứng), bảng Chỗ hở.\n" +
-               "Xong → suite_lint rồi matrix_build. Cú pháp Máy chấm / định dạng: references/suite-format.md của skill test-design.";
+               "Xong → suite_lint rồi matrix_build. Cú pháp Máy chấm / định dạng: references/rules-cheatsheet.md của skill test-design.";
     }
 
     public string SuiteLint(string? task, string suites, bool hash = true)
@@ -200,7 +200,8 @@ public sealed class TestDesign(ProjectContext ctx, IProcRunner? runner = null)
     /// Cột Kết quả của một AC từ result.json lần chạy task mới nhất của từng suite (gộp verdict các luật dẫn AC):
     /// FAIL/ERROR → FAIL; SUSPECT/NOT_MEASURABLE → SUSPECT; mọi luật PASS → PASS; Chỗ hở → chưa đo; không luật → không phủ.
     /// </summary>
-    private string AcResult(string ac, IEnumerable<string> suites, bool gap, bool needSuite)
+    /// <summary>Kết quả AC: run mới nhất purpose=task (cùng phiên test_session của task nếu có) — không lấy run adhoc / baseline.</summary>
+    private string AcResult(string ac, IEnumerable<string> suites, bool gap, bool needSuite, string session)
     {
         var verdicts = new List<string>();
         var runs = new List<string>();
@@ -209,7 +210,12 @@ public sealed class TestDesign(ProjectContext ctx, IProcRunner? runner = null)
             var runsDir = Path.Combine(P.Suite(s), "runs");
             if (!Directory.Exists(runsDir)) continue;
             var last = Directory.GetDirectories(runsDir).OrderByDescending(d => d).FirstOrDefault(d =>
-                File.Exists(Path.Combine(d, "result.json")) && !Text.Read(Path.Combine(d, "run-info.json")).Contains("\"purpose\": \"baseline\""));
+            {
+                if (!File.Exists(Path.Combine(d, "result.json")) || !File.Exists(Path.Combine(d, "run-info.json"))) return false;
+                var info = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(d, "run-info.json")));
+                return info?["purpose"]?.ToString() == "task" && (session.Length == 0 || info["session"]?.ToString() == session)
+                       && info["rules_approved"]?.ToString() != "false";
+            });
             if (last is null) continue;
             runs.Add($"{s}/{Path.GetFileName(last)}");
             var res = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(last, "result.json"))) as System.Text.Json.Nodes.JsonArray;
@@ -234,6 +240,11 @@ public sealed class TestDesign(ProjectContext ctx, IProcRunner? runner = null)
                         && Regex.IsMatch(Text.Fold(r[4]), "suite|revit-test|ung dung (that|chu)|trong revit"))
             .Select(r => r[0]).ToList();
     }
+
+    /// <summary>File *.proposed.* còn trong folder suite (bản đề xuất của suite_scaffold chưa được đưa thành bản chính).</summary>
+    public static List<string> ProposedLeft(string? suitesDir, IEnumerable<string> suites) =>
+        suitesDir is null ? new() : suites.SelectMany(s => new[] { "suite.proposed.yaml", "rules.proposed.md" }
+            .Where(f => File.Exists(Path.Combine(suitesDir, s, f))).Select(f => $"{s}\\{f}")).ToList();
 
     public string BuildMatrix(string? task)
     {
@@ -273,7 +284,7 @@ public sealed class TestDesign(ProjectContext ctx, IProcRunner? runner = null)
             else if (gap.Gap is not null) cell = $"Chỗ hở ({gap.Suite}): {gap.Gap.Missing}";
             else if (needSuite.Contains(ac)) { cell = "KHÔNG PHỦ"; uncovered.Add(ac); }
             else cell = "ngoài suite (unit test / tool READ / kiểm tay)";
-            lines.Add($"| {ac} | {Text.Cell(r.Length >= 5 ? Text.Clip(r[4], 60) : "")} | {Text.Cell(cell)} | {Text.Cell(AcResult(ac, hits.Select(h => h.Suite).Distinct(), gap.Gap is not null, needSuite.Contains(ac)))} |");
+            lines.Add($"| {ac} | {Text.Cell(r.Length >= 5 ? Text.Clip(r[4], 60) : "")} | {Text.Cell(cell)} | {Text.Cell(AcResult(ac, hits.Select(h => h.Suite).Distinct(), gap.Gap is not null, needSuite.Contains(ac), st["test_session"].S()))} |");
         }
         var pending = suiteRules.Where(x => x.Rule.Pending).ToList();
         var noSource = suiteRules.Where(x => x.Rule.ExpectSource.Length == 0).ToList();

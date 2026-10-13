@@ -44,6 +44,10 @@ public sealed class RunStore(ProjectContext ctx, RunnerConfig cfg, IProcRunner? 
         return Directory.GetDirectories(runs).OrderByDescending(d => d).FirstOrDefault() ?? throw new FlowException($"suite {suite} chưa có lần chạy nào");
     }
 
+    /// <summary>Luật chấm bằng mắt: Máy chấm ảnh(...) hoặc kỳ vọng "theo ảnh".</summary>
+    internal static bool IsImageRule(TestRule rule) =>
+        rule.ExpectSource == "ảnh" || rule.Clauses.Any(c => Regex.IsMatch(Text.Fold(c), @"^anh\s*\("));
+
     private static JsonNode? Read(string p) => File.Exists(p) ? JsonNode.Parse(File.ReadAllText(p)) : null;
 
     // ---- get_detail ------------------------------------------------------------------------------------
@@ -140,6 +144,21 @@ public sealed class RunStore(ProjectContext ctx, RunnerConfig cfg, IProcRunner? 
         if (verdict == Verdicts.Pass && note.Trim().Length < 15)
             throw new FlowException("PASS bằng mắt phải mô tả cụ thể đã kiểm gì trên ảnh (note ≥ 15 ký tự) — còn nghi ngờ thì SUSPECT");
         var dir = RunDir(suite, run);
+        if (verdict == Verdicts.Pass)
+        {
+            // luật nhìn ảnh: PASS chỉ khi run có ảnh và note nêu đúng file ảnh đã xem (không PASS bằng ảnh không tồn tại)
+            var rulesPath = Path.Combine(_paths.Suite(suite), "rules.md");
+            var rule = File.Exists(rulesPath) ? RulesFile.Load(rulesPath).Rules.FirstOrDefault(r => r.Id == ruleId) : null;
+            if (rule is not null && IsImageRule(rule))
+            {
+                var images = Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories)
+                    .Where(f => Regex.IsMatch(f, @"\.(png|jpe?g|bmp|gif)$", RegexOptions.IgnoreCase)).Select(Path.GetFileName).Distinct().ToList();
+                if (images.Count == 0)
+                    throw new FlowException($"{ruleId} là luật nhìn ảnh mà run không có ảnh nào (data\\, evidence\\) — không PASS được: ghi SUSPECT hoặc NOT_MEASURABLE");
+                if (!images.Any(n => note.Contains(n!, StringComparison.OrdinalIgnoreCase)))
+                    throw new FlowException($"PASS luật nhìn ảnh: note phải nêu tên file ảnh đã xem — ảnh có trong run: {string.Join(", ", images.Take(6))}");
+            }
+        }
         var resPath = Path.Combine(dir, "result.json");
         var res = Read(resPath) as JsonArray ?? throw new FlowException("run chưa có result.json");
         var changed = 0;

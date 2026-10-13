@@ -16,7 +16,7 @@ Mỗi lượt n = 0, 1, …:
 1. `check_all` (quick) — chưa xanh → sửa lỗi do diff (≤ 5 vòng), không xanh được → dừng, báo.
 2. Với mỗi suite trong `flow_status`: `test_run suite=<…> task=<task> build=true` (Revit phải đang đóng; runner tự build, kiểm DLL + chữ ký, chạy trọn vòng). Không gọi lại khi đang chạy.
 3. Đọc kết quả runner:
-   - **Cần agent chấm** → `get_detail kind=rule ref=R-xx`, mở ảnh bằng Read, `record_verdict` (PASS phải nói rõ đã kiểm gì; còn nghi → SUSPECT).
+   - **Cần agent chấm** → `get_detail kind=rule ref=R-xx`, mở ảnh bằng Read, `record_verdict` (PASS phải nêu tên file ảnh đã xem + đã kiểm gì; run không có ảnh → không PASS được; còn nghi → SUSPECT).
      Luật lệch `rule-eval.ps1` (máy C# và máy Base chấm ngược nhau) cũng nằm ở đây: tự tính lại từ dữ liệu, ghi rõ máy nào đúng vào note.
    - **Chẩn đoán** (máy chỉ gợi ý) → `get_detail kind=log` quanh dòng lỗi đầu; xác nhận hoặc sửa bằng `diagnosis_set`
      (CODE cần `file:dòng` có thật; in_task_diff để trống — máy tự tính từ file đó × diff của task; thuộc KI → ghi ki).

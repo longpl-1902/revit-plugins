@@ -61,6 +61,7 @@ public sealed class TestRunner(
         if (!File.Exists(rulesPath)) throw new FlowException($"suite {req.Suite} thiếu rules.md — không tự bịa luật");
         var taskDir = req.Task.Length > 0 ? ctx.ResolveTask(req.Task) : null;
         if (taskDir is not null) CheckApprovedHashes(taskDir, req.Suite, suiteDir);
+        var unapproved = taskDir is null ? UnapprovedNote(suiteDir) : null;
 
         var stamp = ctx.Clock.Now.ToString("yyyyMMdd-HHmmss");
         var runDir = Path.Combine(suiteDir, "runs", stamp);
@@ -77,6 +78,7 @@ public sealed class TestRunner(
             ["manual_steps"] = new JsonArray(s.Suite.ManualSteps.Select(m => (JsonNode)m).ToArray()),
             ["runner"] = "hawee-flow", ["task"] = taskDir is not null ? Path.GetFileName(taskDir) : "",
         };
+        if (unapproved is not null) { s.Info["rules_approved"] = false; s.Notes.Add(unapproved); }
         WriteInfo(s);
 
         IToolClient? gw = null;
@@ -89,9 +91,11 @@ public sealed class TestRunner(
                 gw = await connect(cfg.Gateway);
                 var before = await ListPids(gw);
                 await StepAsync(s, "2-3 mở Revit, chờ pipe", () => StartRevit(s, gw, before, ct));
-                if (s.PipelineError is null) await StepAsync(s, "4 mở bản sao model", () => OpenCopy(s, gw));
-                if (s.PipelineError is null) await StepAsync(s, "5 chạy kịch bản", () => RunSteps(s, gw));
-                await StepAsync(s, "6 thu kết quả", () => Capture(s, ct));
+                // Revit chưa sẵn sàng (EnvError) hoặc không có PID → không gọi gì vào Revit: gateway có thể đẩy lệnh sang phiên Revit khác
+                bool Ready() => s.EnvError is null && s.PipelineError is null && s.Pid > 0;
+                if (Ready()) await StepAsync(s, "4 mở bản sao model", () => OpenCopy(s, gw));
+                if (Ready()) await StepAsync(s, "5 chạy kịch bản", () => RunSteps(s, gw));
+                if (s.StepsStart != default) await StepAsync(s, "6 thu kết quả", () => Capture(s, ct));
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -136,6 +140,18 @@ public sealed class TestRunner(
         var rm = Text.Sha256File(Path.Combine(suiteDir, "rules.md"));
         if (!sy.Equals(h["suite_yaml"].S(), StringComparison.OrdinalIgnoreCase) || !rm.Equals(h["rules_md"].S(), StringComparison.OrdinalIgnoreCase))
             throw new FlowException($"suite {suite}: suite.yaml/rules.md đổi sau khi duyệt ở G2 ({h["approved_by"].S()} {h["date"].S()}) — người duyệt lại rồi mới chạy");
+    }
+
+    /// <summary>Chạy lẻ trên suite đã khoá ở G2 mà suite.yaml / rules.md đã đổi → chạy nhưng đánh dấu; ma trận AC không lấy lần chạy này.</summary>
+    private static string? UnapprovedNote(string suiteDir)
+    {
+        var a = ReadJson(Path.Combine(suiteDir, "approved.json"));
+        if (a is null) return null;
+        var sy = Text.Sha256File(Path.Combine(suiteDir, "suite.yaml"));
+        var rm = Text.Sha256File(Path.Combine(suiteDir, "rules.md"));
+        return sy.Equals(a["suite_yaml"]?.ToString(), StringComparison.OrdinalIgnoreCase) && rm.Equals(a["rules_md"]?.ToString(), StringComparison.OrdinalIgnoreCase)
+            ? null
+            : $"LUẬT CHƯA DUYỆT: suite.yaml/rules.md đổi sau G2 ({a["approved_by"]} {a["date"]}) — kết quả lần chạy này không dùng cho G3; duyệt lại ở G2 rồi chạy /verify.";
     }
 
     private (string Session, int Loop) Session(RunRequest req, string suiteDir, string? taskDir, string stamp)
@@ -294,13 +310,10 @@ public sealed class TestRunner(
                 if (v.TryGetValue<string>(out var str) && File.Exists(str) && !s.ConfigFiles.Contains(str)) s.ConfigFiles.Add(str);
             var decision = policy.Check(step, args, s.Suite.AllowDraw);
             if (!decision.Allowed) { s.PipelineError = "CHẶN: " + decision.Reason; Log(s, s.PipelineError); break; }
-            if (step.IsSetup)
-            {
-                var info = await CallInRevit(gw, s, cfg.ToolDocInfo, new JsonObject(), TimeSpan.FromSeconds(60));
-                var pathName = JsonScan.Objects(info.Json).Select(o => JsonScan.Str(o, "pathName", "PathName", "path")).FirstOrDefault(p => p is not null) ?? "";
-                if (!Policy.IsInside(pathName, s.RunDir)) { s.PipelineError = $"dựng tình huống — document '{pathName}' ngoài RUN_DIR"; break; }
-                Log(s, $"setup {step.Tool} trên {pathName} — {step.Why}");
-            }
+            // mọi step chỉ chạy trên bản sao trong RUN_DIR (step trước có thể đã mở / đổi document)
+            var pathName = await ActiveDocument(gw, s);
+            if (!Policy.IsInside(pathName, s.RunDir)) { s.PipelineError = $"trước step {step.Index}: document đang mở '{pathName}' không nằm trong RUN_DIR — dừng"; Log(s, s.PipelineError); break; }
+            if (step.IsSetup) Log(s, $"setup {step.Tool} trên {pathName} — {step.Why}");
             var t0 = DateTime.Now;
             var r = await CallInRevit(gw, s, step.Tool, args, TimeSpan.FromMinutes(s.Suite.StepMin));
             SaveStep(s, step, r);
@@ -311,7 +324,18 @@ public sealed class TestRunner(
                 if (!step.OnError.Equals("continue", StringComparison.OrdinalIgnoreCase)) { s.PipelineError = $"step {step.Index} {step.Tool} lỗi"; break; }
             }
         }
+        if (s.PipelineError is null && s.Suite.Steps.Count > 0)
+        {
+            var after = await ActiveDocument(gw, s);
+            if (!Policy.IsInside(after, s.RunDir)) { s.PipelineError = $"sau step cuối: document đang mở '{after}' không nằm trong RUN_DIR"; Log(s, s.PipelineError); }
+        }
         s.StepsEnd = DateTime.Now;
+    }
+
+    private async Task<string> ActiveDocument(IToolClient gw, RunState s)
+    {
+        var info = await CallInRevit(gw, s, cfg.ToolDocInfo, new JsonObject(), TimeSpan.FromSeconds(60));
+        return JsonScan.Objects(info.Json).Select(o => JsonScan.Str(o, "pathName", "PathName", "path")).FirstOrDefault(p => p is not null) ?? "";
     }
 
     /// <summary>Kết quả tool của từng step → data\steps\NN-&lt;tool&gt;.json (JSON của tool; không parse được thì { ok, text }) để luật chấm và agent xem.</summary>

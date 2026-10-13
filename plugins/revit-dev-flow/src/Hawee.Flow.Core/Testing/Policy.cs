@@ -10,7 +10,9 @@ namespace Hawee.Flow.Core.Testing;
 ///  - revit_test.forbidden: chặn khi điều kiện 'when' khớp (không 'when' = luôn chặn)
 ///  - forbidden_unless_allow_draw: chỉ khi suite allow_draw và blocked_by rỗng
 ///  - step purpose: setup: tool phải nằm trong setup_tools (có approved_by); document của PID phải nằm trong RUN_DIR (kiểm ở runner)
-///  - open_document: chỉ mở file trong RUN_DIR (bản sao)
+///  - tool runner tự quản (tools.open_document / close_document / call / list_instances / list_tools): không được là step —
+///    runner tự mở bản sao và đóng; document của PID phải nằm trong RUN_DIR trước mọi step (kiểm ở runner)
+///  - 'when' dạng k=v mà args thiếu k → chặn (chặt hơn revit-test-guard.ps1 của Base: tool có thể mặc định dry_run=false)
 /// </summary>
 public sealed class Policy(Y testBlock)
 {
@@ -20,6 +22,10 @@ public sealed class Policy(Y testBlock)
     {
         var tool = step.Tool;
         if (string.IsNullOrWhiteSpace(tool)) return new(false, $"step {step.Index}: thiếu tool");
+
+        var owned = new[] { "open_document", "close_document", "call", "list_instances", "list_tools" }
+            .Select(k => testBlock["tools"][k].S()).Where(t => t.Length > 0).ToHashSet();
+        if (owned.Contains(tool)) return new(false, $"step {step.Index}: {tool} là tool runner tự quản (mở / đóng bản sao, gọi tool) — không dùng làm step");
 
         if (step.IsSetup)
         {
@@ -36,7 +42,12 @@ public sealed class Policy(Y testBlock)
             var ft = f.IsMap ? f["tool"].S() : f.S();
             if (ft != tool) continue;
             var when = f.IsMap ? f["when"].S() : "";
-            if (WhenMatches(when, args)) return new(false, $"{tool} bị cấm{(when.Length > 0 ? $" khi {when}" : "")} ({Key("forbidden")})");
+            if (WhenMatches(when, args))
+            {
+                var missing = MissingKeys(when, args);
+                return new(false, $"{tool} bị cấm{(when.Length > 0 ? $" khi {when}" : "")} ({Key("forbidden")})"
+                    + (missing.Count > 0 ? $" — args không có {string.Join(", ", missing)}: ghi rõ giá trị an toàn (vd. dry_run: true)" : ""));
+            }
         }
         if (DrawTools().Contains(tool))
         {
@@ -53,6 +64,7 @@ public sealed class Policy(Y testBlock)
     /// <summary>
     /// 'when': mệnh đề nối bằng " hoặc " / " or "; "k=v" (so chuỗi không phân biệt hoa thường) hoặc "k" (có mặt, khác rỗng).
     /// Mệnh đề không hiểu → coi như khớp (chặn) để an toàn — giống revit-test-guard.ps1.
+    /// "k=v" mà args không có k → coi như khớp (chặn): không biết giá trị mặc định của tool thì không đoán là an toàn.
     /// </summary>
     public static bool WhenMatches(string when, JsonObject args)
     {
@@ -64,7 +76,7 @@ public sealed class Policy(Y testBlock)
             if (kv.Success)
             {
                 var v = Value(args, kv.Groups[1].Value);
-                if (v is not null && v.Equals(kv.Groups[2].Value.Trim(), StringComparison.OrdinalIgnoreCase)) return true;
+                if (v is null || v.Equals(kv.Groups[2].Value.Trim(), StringComparison.OrdinalIgnoreCase)) return true;
                 continue;
             }
             var k = Regex.Match(t, @"^([A-Za-z_][A-Za-z0-9_]*)$");
@@ -78,6 +90,9 @@ public sealed class Policy(Y testBlock)
         }
         return false;
     }
+
+    private static List<string> MissingKeys(string when, JsonObject args) =>
+        Regex.Matches(when, @"([A-Za-z_][A-Za-z0-9_]*)\s*=").Select(m => m.Groups[1].Value).Where(k => Value(args, k) is null).Distinct().ToList();
 
     private static string? Value(JsonObject args, string key) =>
         args.TryGetPropertyValue(key, out var n) && n is not null

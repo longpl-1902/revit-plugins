@@ -64,6 +64,15 @@ internal sealed class FakeHost : IHostProcess
     public IReadOnlyList<string> DialogTitles(int pid) => Dialogs;
 }
 
+/// <summary>Revit thoát ngay khi khởi động: PID không bao giờ sống, gateway không thấy instance mới.</summary>
+internal sealed class DeadHost : IHostProcess
+{
+    public int Start(string exe) => 5151;
+    public bool IsAlive(int pid) => false;
+    public void Kill(int pid) { }
+    public IReadOnlyList<string> DialogTitles(int pid) => Array.Empty<string>();
+}
+
 public class RunnerTests : IDisposable
 {
     private readonly string _root = Directory.CreateTempSubdirectory("runner").FullName;
@@ -213,7 +222,13 @@ public class RunnerTests : IDisposable
         // agent chấm R-03 sau khi xem ảnh → hết pending, test-summary chạy lại ra PASS
         var store = new RunStore(repo.Ctx(), RunnerConfig.From(repo.Ctx()), repo.Runner);
         Assert.Throws<FlowException>(() => store.RecordVerdict("1-main", "", "R-03", "", "PASS", "ok"));
-        var rv = store.RecordVerdict("1-main", "", "R-03", "", "PASS", "label nằm trên, cách keyplan 12 mm ở cả hai ảnh");
+        // luật nhìn ảnh: run không có ảnh → không PASS được; có ảnh → note phải nêu đúng file đã xem
+        var noImg = Assert.Throws<FlowException>(() => store.RecordVerdict("1-main", "", "R-03", "", "PASS", "label nằm trên, cách keyplan 12 mm ở cả hai ảnh"));
+        Assert.Contains("không có ảnh nào", noImg.Message);
+        File.WriteAllBytes(Path.Combine(run, "data", "checkpoints", "SAVE", "FINAL_A-101.png"), new byte[] { 1, 2, 3 });
+        var wrongImg = Assert.Throws<FlowException>(() => store.RecordVerdict("1-main", "", "R-03", "", "PASS", "label nằm trên keyplan ở FINAL_A-999.png"));
+        Assert.Contains("FINAL_A-101.png", wrongImg.Message);
+        var rv = store.RecordVerdict("1-main", "", "R-03", "", "PASS", "FINAL_A-101.png: label nằm trên, cách keyplan 12 mm");
         Assert.Contains("test-summary: PASS", rv);
         Assert.Contains("R-03", store.Detail("1-main", "", "rule", "R-03", 10));
     }
@@ -423,6 +438,54 @@ public class RunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task Revit_chet_khi_khoi_dong_thi_khong_goi_gi_vao_Revit()
+    {
+        using var repo = Repo();
+        Suite("  - { tool: import_csv, args: {} }");
+        FakeScripts(repo);
+        var gw = new FakeGateway(new FakeHost(), LogFile);
+        var r = await new TestRunner(repo.Ctx(), RunnerConfig.From(repo.Ctx()),
+            name => Task.FromResult<IToolClient>(name == "hawee" ? gw : new FakeTracking()), new DeadHost(), repo.Runner) { Poll = 0 }
+            .Run(new RunRequest("1-main"));
+        Assert.Contains("ENV: Revit thoát khi khởi động", r);
+        Assert.Empty(gw.Called);   // không open_document / document_info / step nào với pid 0
+    }
+
+    [Fact]
+    public async Task Step_khong_duoc_mo_document_va_moi_step_chi_chay_tren_ban_sao()
+    {
+        using var repo = Repo();
+        Suite("  - { tool: open_document, args: { path: '{dataset}\\model.rvt' } }");
+        FakeScripts(repo);
+        var (runner, gw, _) = Make(repo);
+        var r = await runner.Run(new RunRequest("1-main"));
+        Assert.Contains("tool runner tự quản", r);
+        Assert.Single(gw.Called, c => c.StartsWith("open_document"));   // chỉ lần mở bản sao của runner
+
+        // step trước đổi document sang model ngoài RUN_DIR → step sau không chạy
+        using var repo2 = Repo();
+        Suite("  - { tool: switch_doc, args: {} }\n  - { tool: import_csv, args: {} }");
+        FakeScripts(repo2);
+        var (runner2, gw2, _) = Make(repo2);
+        gw2.StepHook = (tool, a) => { if (tool == "switch_doc") gw2.OpenedPath = Path.Combine(Datasets, "bo", "model.rvt"); return null; };
+        var r2 = await runner2.Run(new RunRequest("1-main"));
+        Assert.Contains("không nằm trong RUN_DIR", r2);
+        Assert.DoesNotContain(gw2.Called, c => c.StartsWith("import_csv"));
+    }
+
+    [Fact]
+    public void Dieu_kien_cam_thieu_tham_so_thi_chan()
+    {
+        Assert.True(Policy.WhenMatches("dry_run=false", new JsonObject()));
+        Assert.False(Policy.WhenMatches("dry_run=false", new JsonObject { ["dry_run"] = true }));
+        Assert.True(Policy.WhenMatches("dry_run=false", new JsonObject { ["dry_run"] = false }));
+        var y = Y.Parse("forbidden:\n  - { tool: delete_sheets, when: \"dry_run=false\" }\n");
+        var d = new Policy(y).Check(new SuiteStep(1, "delete_sheets", new JsonObject { ["sheets"] = "A-101" }, "action", "", "stop"), new JsonObject { ["sheets"] = "A-101" }, false);
+        Assert.False(d.Allowed);
+        Assert.Contains("args không có dry_run", d.Reason);
+    }
+
+    [Fact]
     public async Task Hop_thoai_khoi_dong_la_loi_moi_truong()
     {
         using var repo = Repo();
@@ -436,6 +499,76 @@ public class RunnerTests : IDisposable
             .Run(new RunRequest("1-main"));
         Assert.Contains("ENV: Revit kẹt hộp thoại khởi động: Duplicated AddInId", r);
         Assert.DoesNotContain(4242, host.Alive);
+    }
+
+    [Fact]
+    public async Task Chay_le_tren_suite_da_khoa_bi_danh_dau_va_ma_tran_chi_lay_run_cua_task()
+    {
+        using var repo = Repo();
+        Suite("  - { tool: import_csv, args: {} }");
+        FakeScripts(repo);
+        new TaskOpener(repo.Ctx(), repo.Runner).Open(new OpenInput("1", "main"));
+        var dir = Path.Combine(repo.Root, "docs/tasks/1-main");
+        Text.Write(Path.Combine(dir, "spec.md"), "# Spec\n\n## 5. Hành vi đúng\n\n| # | Kịch bản | Khi | Thì | Đo bằng |\n|---|---|---|---|---|\n| AC1 | K1 | a | b | suite trong Revit |\n");
+        var st = StatusFile.ForTask(dir);
+        st.AddToList("suites", "1-main");
+        st.Save();
+        var (runner, _, _) = Make(repo);
+
+        // lượt của task (phiên verify)
+        await runner.Run(new RunRequest("1-main", Task: "1"));
+        var taskRun = Path.GetFileName(LatestRun());
+
+        // sau G2 có người sửa luật; chạy lẻ (/revit-test) → vẫn chạy nhưng bị đánh dấu
+        Text.Write(Path.Combine(Suites, "1-main", "approved.json"), """{ "suite_yaml": "AAA", "rules_md": "BBB", "approved_by": "Minh", "date": "2026-10-10" }""");
+        repo.Clock.Now = repo.Clock.Now.AddMinutes(5);
+        Text.Write(LogFile, "2026-10-12 08:00:00 [1] INFO dòng cũ trước lần chạy\n");
+        await runner.Run(new RunRequest("1-main", Purpose: "adhoc"));
+        var adhocRun = LatestRun();
+        Assert.NotEqual(taskRun, Path.GetFileName(adhocRun));
+        Assert.Equal("false", JsonNode.Parse(File.ReadAllText(Path.Combine(adhocRun, "run-info.json")))!["rules_approved"]!.ToString());
+        Assert.Contains("LUẬT CHƯA DUYỆT", File.ReadAllText(Path.Combine(adhocRun, "report.md")));
+
+        // ma trận AC lấy run của task, không lấy run lẻ mới hơn
+        new TestDesign(repo.Ctx()).BuildMatrix("1");
+        var td = Text.Read(Path.Combine(dir, "test-design.md"));
+        Assert.Contains(taskRun, td);
+        Assert.DoesNotContain(Path.GetFileName(adhocRun), td);
+    }
+
+    [Fact]
+    public void G2_chan_khi_suite_con_ban_de_xuat()
+    {
+        using var repo = Repo();
+        Suite("  - { tool: import_csv, args: {} }");
+        new TaskOpener(repo.Ctx(), repo.Runner).Open(new OpenInput("1", "main"));
+        var dir = Path.Combine(repo.Root, "docs/tasks/1-main");
+        var st = StatusFile.ForTask(dir);
+        st.AddToList("suites", "1-main");
+        st.Set("baseline", "baseline.json");
+        st.Set("autonomy", "ask");
+        st.Save();
+        Text.Write(Path.Combine(Suites, "1-main", "rules.proposed.md"), "# đề xuất");
+        var ex = Assert.Throws<FlowException>(() => new GateSubmit(repo.Ctx()).Submit("1", "G2"));
+        Assert.Contains("rules.proposed.md", ex.Message);
+        ex = Assert.Throws<FlowException>(() => new GateRecorder(repo.Ctx()).Record("1", new GateInput("G2", "PASS", "Minh", "chat", CoderConfirmed: true)));
+        Assert.Contains("bản đề xuất", ex.Message);
+
+        // đưa thành bản chính → G2 ghi hash vào status và approved.json trong folder suite
+        File.Delete(Path.Combine(Suites, "1-main", "rules.proposed.md"));
+        new GateRecorder(repo.Ctx()).Record("1", new GateInput("G2", "PASS", "Minh", "chat", CoderConfirmed: true));
+        var approved = JsonNode.Parse(File.ReadAllText(Path.Combine(Suites, "1-main", "approved.json")))!;
+        Assert.Equal(Text.Sha256File(Path.Combine(Suites, "1-main", "rules.md")), approved["rules_md"]!.ToString());
+    }
+
+    [Fact]
+    public void Mcp_json_mo_rong_bien_nhu_Claude_Code()
+    {
+        Environment.SetEnvironmentVariable("HAWEE_TEST_GW_DIR", "C:/gw");
+        Environment.SetEnvironmentVariable("HAWEE_TEST_UNSET", null);
+        Assert.Equal("C:/gw/hawee.exe", McpToolClient.Expand("${HAWEE_TEST_GW_DIR}/hawee.exe"));
+        Assert.Equal("8080", McpToolClient.Expand("${HAWEE_TEST_UNSET:-8080}"));
+        Assert.Equal("", McpToolClient.Expand("${HAWEE_TEST_UNSET}"));
     }
 
     [Fact]
@@ -462,7 +595,8 @@ public class RunnerTests : IDisposable
         var (runner, gw, _) = Make(repo);
         await runner.Run(new RunRequest("1-main"));
         var store = new RunStore(repo.Ctx(), RunnerConfig.From(repo.Ctx()), repo.Runner);
-        store.RecordVerdict("1-main", "", "R-03", "", "PASS", "label nằm trên, cách keyplan 12 mm ở cả hai ảnh");
+        File.WriteAllBytes(Path.Combine(LatestRun(), "evidence", "FINAL_A-101.png"), new byte[] { 1, 2, 3 });
+        store.RecordVerdict("1-main", "", "R-03", "", "PASS", "FINAL_A-101.png: label nằm trên, cách keyplan 12 mm");
 
         // lượt 2: dữ liệu như lượt 1 → dùng lại verdict của agent
         repo.Clock.Now = repo.Clock.Now.AddMinutes(5);

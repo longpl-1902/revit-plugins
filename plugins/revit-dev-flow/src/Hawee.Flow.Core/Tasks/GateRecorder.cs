@@ -1,5 +1,6 @@
 using Hawee.Flow.Core.Flow;
 using Hawee.Flow.Core.Infra;
+using Hawee.Flow.Core.Testing;
 
 namespace Hawee.Flow.Core.Tasks;
 
@@ -36,6 +37,8 @@ public sealed class GateRecorder(ProjectContext ctx)
             throw new FlowException($"còn câu CHẶN mở ({string.Join(", ", st["open_questions"].Strings())}) — chưa qua G1 được");
         if (gate == "G2" && decision is "PASS" or "CONCERNS" && !g.CoderConfirmed)
             throw new FlowException("G2 cần người sẽ code xác nhận \"đủ để code\" (coder_confirmed=true)");
+        if (gate == "G2" && passed && TestDesign.ProposedLeft(SuitesDir(), st["suites"].Strings()) is { Count: > 0 } proposed)
+            throw new FlowException($"suite còn bản đề xuất ({string.Join(", ", proposed)}) — đổi tên thành suite.yaml / rules.md trước, G2 khoá hash bản chính");
 
         var date = ctx.Clock.Now.ToString("yyyy-MM-dd");
         var log = new DecisionLog(ctx);
@@ -102,6 +105,12 @@ public sealed class GateRecorder(ProjectContext ctx)
                 new("approved_by", StatusFile.Scalar(by)), new("date", StatusFile.Scalar(date)),
             });
             result.Add(new(s, inner));
+            // bản sao trong folder suite: runner kiểm cả khi chạy lẻ (/revit-test, không có task)
+            File.WriteAllText(Path.Combine(dir, "approved.json"), new System.Text.Json.Nodes.JsonObject
+            {
+                ["suite_yaml"] = Text.Sha256File(sy), ["rules_md"] = Text.Sha256File(rm), ["approved_by"] = by, ["date"] = date,
+                ["note"] = "ghi bởi gate_record G2 — suite.yaml / rules.md đổi sau đó thì lần chạy bị đánh dấu 'luật chưa duyệt'",
+            }.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
         }
         return result;
     }

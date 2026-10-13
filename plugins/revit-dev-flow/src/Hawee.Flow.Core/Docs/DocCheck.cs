@@ -20,8 +20,12 @@ public sealed class DocCheck(ProjectContext ctx, IProcRunner? runner = null)
     private static readonly Regex RuleRef = new(@"\b(?!DEC-|KI-|LL-|PT-|K-|ADR-)([A-Z]{2,}(?:-[A-Z0-9]+)*-\d{3})\b", RegexOptions.Compiled);
     private static readonly Regex KiRef = new(@"\b(KI-[A-Z0-9]+-\d{3,})\b", RegexOptions.Compiled);
 
+    public const string VerdictPrefix = "Kết luận:", VerdictOk = "có thể trình cổng", VerdictNotOk = "chưa trình cổng được";
+
     public string Check(string? task, string which = "both")
     {
+        which = which.Trim().ToLowerInvariant();
+        if (which is not ("spec" or "plan" or "both")) throw new FlowException("which: spec | plan | both");
         var dir = ctx.ResolveTask(task);
         var docs = new List<string>();
         if (which is "spec" or "both") docs.Add(Path.Combine(dir, "spec.md"));
@@ -35,8 +39,11 @@ public sealed class DocCheck(ProjectContext ctx, IProcRunner? runner = null)
 
         var date = ctx.Clock.Now.ToString("yyyy-MM-dd");
         var report = Path.Combine(dir, $"analyze-{date}.md");
+        var ok = lint.Errors.Count == 0 && findings.All(f => f.Level is "MEDIUM" or "LOW");
         var full = new StringBuilder();
         full.AppendLine($"# /analyze (máy) — {Path.GetFileName(dir)} — {date} — phạm vi: {which}");
+        full.AppendLine();
+        full.AppendLine($"{VerdictPrefix} {(ok ? VerdictOk : VerdictNotOk)}");   // gate_submit G1 đọc dòng này
         full.AppendLine();
         full.AppendLine($"doc-lint: {(lint.Errors.Count == 0 ? "OK" : lint.Errors.Count + " lỗi")} · {lint.Warnings.Count} cảnh báo");
         full.AppendLine();
@@ -55,7 +62,6 @@ public sealed class DocCheck(ProjectContext ctx, IProcRunner? runner = null)
         foreach (var f in findings.OrderBy(f => Rank(f.Level)).Take(10)) sb.AppendLine($"{f.Level} {f.Where}: {f.What}");
         if (findings.Count > 10) sb.AppendLine($"… còn {findings.Count - 10} phát hiện");
         sb.Append($"Báo cáo: {ctx.Rel(report)}");
-        var ok = lint.Errors.Count == 0 && findings.All(f => f.Level is "MEDIUM" or "LOW");
         sb.Append(ok ? " · có thể trình cổng (sau rà độc lập theo tier)" : " · chưa trình cổng được");
         return sb.ToString();
     }

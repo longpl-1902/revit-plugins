@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Hawee.Flow.Core.Infra;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
@@ -43,26 +44,39 @@ public sealed class McpToolClient : IToolClient
             $"không thấy cấu hình MCP '{serverName}' (thêm vào .mcp.json của repo hoặc `claude mcp add`, hoặc đặt HAWEE_FLOW_MCP_{Env(serverName)} = JSON {{command,args,env}} / {{url}})");
         IClientTransport transport;
         if (cfg["url"]?.GetValue<string>() is { Length: > 0 } url)
-            transport = new HttpClientTransport(new HttpClientTransportOptions { Endpoint = new Uri(url), Name = serverName });
+        {
+            var http = new HttpClientTransportOptions { Endpoint = new Uri(Expand(url)), Name = serverName };
+            if (cfg["headers"] is JsonObject headers)
+                http.AdditionalHeaders = headers.ToDictionary(kv => kv.Key, kv => Expand(kv.Value?.GetValue<string>() ?? ""));
+            transport = new HttpClientTransport(http);
+        }
         else
         {
             var cmd = cfg["command"]?.GetValue<string>() ?? throw new FlowException($"cấu hình MCP '{serverName}' thiếu command/url");
             var opts = new StdioClientTransportOptions
             {
                 Name = serverName,
-                Command = cmd,
-                Arguments = cfg["args"] is JsonArray a ? a.Select(x => x!.GetValue<string>()).ToList() : new List<string>(),
+                Command = Expand(cmd),
+                Arguments = cfg["args"] is JsonArray a ? a.Select(x => Expand(x!.GetValue<string>())).ToList() : new List<string>(),
                 WorkingDirectory = ctx.Root,
             };
             if (cfg["env"] is JsonObject env)
             {
                 opts.EnvironmentVariables = new Dictionary<string, string?>();
-                foreach (var (k, v) in env) opts.EnvironmentVariables[k] = Environment.ExpandEnvironmentVariables(v?.GetValue<string>() ?? "");
+                foreach (var (k, v) in env) opts.EnvironmentVariables[k] = Expand(v?.GetValue<string>() ?? "");
             }
             transport = new StdioClientTransport(opts);
         }
         var client = await McpClient.CreateAsync(transport, cancellationToken: ct);
         return new McpToolClient(client);
+    }
+
+    /// <summary>Mở rộng biến như Claude Code đọc .mcp.json: ${VAR}, ${VAR:-mặc định}; thêm %VAR% của Windows.</summary>
+    internal static string Expand(string s)
+    {
+        s = Regex.Replace(s, @"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}", m =>
+            Environment.GetEnvironmentVariable(m.Groups[1].Value) is { Length: > 0 } v ? v : m.Groups[2].Success ? m.Groups[2].Value : "");
+        return Environment.ExpandEnvironmentVariables(s);
     }
 
     private static string Env(string name) => new string(name.ToUpperInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '_').ToArray());

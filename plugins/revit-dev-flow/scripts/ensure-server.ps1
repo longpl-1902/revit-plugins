@@ -8,7 +8,17 @@
 param([switch]$Force)
 $ErrorActionPreference = 'Stop'
 $root = if ($env:CLAUDE_PLUGIN_ROOT) { $env:CLAUDE_PLUGIN_ROOT } else { Split-Path -Parent $PSScriptRoot }
-$data = if ($env:CLAUDE_PLUGIN_DATA) { $env:CLAUDE_PLUGIN_DATA } else { Join-Path $env:LOCALAPPDATA 'hawee-flow' }
+# Chay tay (khong co CLAUDE_PLUGIN_DATA): tim thu muc data ma Claude Code dung (~\.claude\plugins\data\*revit-dev-flow*),
+# vi .mcp.json chay ${CLAUDE_PLUGIN_DATA}\server - dung nham cho khac thi Claude Code van chay ban cu.
+$data = $env:CLAUDE_PLUGIN_DATA
+if (-not $data) {
+    $pdata = Join-Path $HOME '.claude\plugins\data'
+    $cands = @()
+    if (Test-Path -LiteralPath $pdata) { $cands = @(Get-ChildItem -LiteralPath $pdata -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '*revit-dev-flow*' }) }
+    if ($cands.Count -eq 1) { $data = $cands[0].FullName }
+    elseif ($cands.Count -gt 1) { Write-Output ("[revit-dev-flow] Nhieu thu muc data: " + (($cands | ForEach-Object { $_.FullName }) -join ', ') + " - dat CLAUDE_PLUGIN_DATA=<thu muc dung> roi chay lai."); exit 0 }
+    else { $data = Join-Path $env:LOCALAPPDATA 'hawee-flow'; Write-Output "[revit-dev-flow] Khong thay ~\.claude\plugins\data\*revit-dev-flow* - dung vao $data (Claude Code chi dung ban nay neu CLAUDE_PLUGIN_DATA tro toi day)." }
+}
 $src = Join-Path $root 'src'
 $out = Join-Path $data 'server'
 $next = Join-Path $data 'server.next'

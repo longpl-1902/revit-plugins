@@ -20,6 +20,13 @@ và `BIM_KB_Base/` (giữ nguyên định dạng — plugin đọc, không đổ
 Lần đầu mở phiên, hook SessionStart dựng server vào `${CLAUDE_PLUGIN_DATA}/server` (`dotnet publish`, ~30 s; lần sau
 chỉ dựng lại khi mã nguồn plugin đổi). Tool `hawee-flow` chưa hiện → gõ `/mcp` để kết nối lại.
 
+Server dựng vào `server.next` rồi mới chép sang `server\`. Lúc mở phiên, Claude Code chạy MCP server song song với hook, nên
+server **cũ** có thể đang giữ khoá DLL: hook đổi tên file đang bị khoá (`*.old-<số>`, dọn ở lần sau) rồi chép bản mới vào, xong nhắc
+`/mcp` để nối lại. **Dựng lỗi** → hook in luôn các dòng `error` đầu tiên của `${CLAUDE_PLUGIN_DATA}\build.log`. Còn file không thay
+được (phiên Claude Code khác đang chạy server) → đóng các phiên đó, hoặc
+`Get-CimInstance Win32_Process -Filter "Name='dotnet.exe'" | ? CommandLine -match 'Hawee.Flow.Server' | % { Stop-Process -Id $_.ProcessId }`,
+rồi chạy `powershell -ExecutionPolicy Bypass -File "<thư mục plugin>\scripts\ensure-server.ps1" -Force` và `/mcp`.
+
 **Chạy suite Revit (`test_run`)**: runner tự kết nối gateway `revit_test.mcp` (vd. `hawee`) và `revit_test.capture.tracking_mcp`
 (vd. `bim-tracking`) như một MCP client. Thứ tự tìm cấu hình: biến `HAWEE_FLOW_MCP_<TÊN>` = JSON `{command, args, env}` /
 `{url}` → `.mcp.json` ở gốc repo dự án → `.hawee-flow/mcp.json` → `~/.claude.json` (khai bằng `claude mcp add`, cấp local

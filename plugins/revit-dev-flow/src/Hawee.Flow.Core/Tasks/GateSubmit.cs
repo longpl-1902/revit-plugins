@@ -28,6 +28,11 @@ public sealed class GateSubmit(ProjectContext ctx)
                 if (st["baseline"].S().Length == 0 && st["tier"].S() != "T0") missing.Add("chưa có baseline (baseline_run)");
                 if (st["autonomy"].S().Length == 0) missing.Add("chưa chốt mức tự chủ ask/night");
                 if (st["open_questions"].Strings() is { Count: > 0 } oq2) missing.Add("còn câu CHẶN: " + string.Join(", ", oq2));
+                // Base gates.md G2: có test trong ứng dụng chủ → bảng luật 3d phải có và đã duyệt
+                if (st["suites"].Strings().Count == 0 && !SuiteWaived(st)
+                    && TestDesign.AcsNeedingSuite(Path.Combine(dir, "spec.md")) is { Count: > 0 } needSuite)
+                    missing.Add($"spec có AC đo bằng suite ({string.Join(", ", needSuite)}) nhưng chưa có suite — chạy /test-design "
+                                + "(người quyết không cần suite: status.yaml test_design: \"không cần — <lý do> (<người>)\")");
                 foreach (var s in st["suites"].Strings())
                 {
                     var rf = Path.Combine(SafeSuitesDir() ?? "", s, "rules.md");
@@ -57,6 +62,9 @@ public sealed class GateSubmit(ProjectContext ctx)
         status.Save();
         return $"{Path.GetFileName(dir)}: trình {g} — state {def["from"].S()}. Người duyệt: {new FlowEngine(ctx).Approvers(g)}. Điều kiện: {def["check"].S()}. DỪNG chờ /gate {g}.";
     }
+
+    /// <summary>Người đã quyết task không cần suite: status.yaml test_design: "không cần — lý do (người)".</summary>
+    internal static bool SuiteWaived(Y st) => Text.Fold(st["test_design"].S()).StartsWith("khong can");
 
     private string? SafeSuitesDir()
     {

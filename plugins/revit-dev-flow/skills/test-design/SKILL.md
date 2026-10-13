@@ -2,11 +2,11 @@
 name: test-design
 description: Bước 3d — sinh suite.yaml + rules.md từ AC của spec đã qua G1 và bộ dữ liệu; bảng luật duyệt ở G2.
 argument-hint: "[task] [--from <đường dẫn dữ liệu> | --dataset <bộ>]"
-disable-model-invocation: true
 ---
 
 # /test-design $ARGUMENTS
 
+Chạy sau G1, trước 4a, khi spec §5 có AC "Đo bằng" suite / trong Revit (`flow_next` báo; `/plan` tự gọi; thiếu suite thì `gate_submit G2` chặn).
 Máy làm phần cơ học, agent viết luật. Định dạng luật + cú pháp Máy chấm: [references/rules-cheatsheet.md](references/rules-cheatsheet.md).
 
 1. **Dữ liệu**: `--from` → `dataset_register` (hỏi người `by` + `classification` nếu chưa nói). `--dataset` → `dataset_check`.
@@ -19,4 +19,4 @@ Máy làm phần cơ học, agent viết luật. Định dạng luật + cú ph�
    Thêm gói luật chung của dự án cho tool có trong steps (giữ ID gói). Suite đã có → sửa `*.proposed.*`, giữ ID, luật bỏ ghi `retired`.
 5. `suite_lint` tới khi chỉ còn luật `chờ`. `matrix_build` → test-design.md (AC không phủ, luật chờ, cần baseline).
    Ghi thêm vào test-design.md (ngoài khối máy sinh): kịch bản K → suite | không áp dụng | thủ công; câu hỏi `chờ` + đề xuất + mặc định; số lần chạy ước lượng.
-6. **DỪNG** — trả lời 5–10 dòng: bộ dữ liệu (mới / dùng lại, hash khớp), số suite + luật, AC phủ / chỗ hở, câu `chờ` cần trả lời. Bảng luật duyệt ở G2 cùng plan.
+6. Gọi từ `/plan` → không dừng riêng: đưa câu `chờ` + chọn bộ dữ liệu vào gói 4a, làm tiếp 4a. Người gọi trực tiếp → **DỪNG** — trả lời 5–10 dòng: bộ dữ liệu (mới / dùng lại, hash khớp), số suite + luật, AC phủ / chỗ hở, câu `chờ` cần trả lời. Bảng luật duyệt ở G2 cùng plan.

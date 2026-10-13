@@ -1,7 +1,7 @@
 {
   "name": "revit-dev-flow",
   "displayName": "Revit Dev Flow (BIM_KB_Base)",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Luồng phát triển add-in Revit theo BIM_KB_Base (bước 1–10, cổng G1–G6) với ít token: quy trình nằm trong MCP server hawee-flow (C#), skill mỏng, hook hỏi lại người ở cổng và commit/push.",
   "author": { "name": "longpl-1902" },
   "repository": "https://github.com/longpl-1902/revit-plugins",

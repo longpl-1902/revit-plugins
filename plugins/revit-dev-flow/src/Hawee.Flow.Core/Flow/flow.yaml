@@ -44,7 +44,7 @@ states:
     name: Sinh test từ spec, rồi plan làm cùng DEV
     skill: /plan
     do:
-      - 3d (khi task chạy trong Revit và spec có AC đo bằng suite) -> /test-design trước plan.
+      - 3d TRƯỚC TIÊN: spec có AC đo bằng suite (flow_next báo) mà chưa có suite -> agent tự gọi /test-design; câu "chờ" đưa vào gói 4a.
       - 4a baseline_run trên commit gốc; ≥ 2 phương án + caller tìm thật; thiết kế + bất biến; gói 4a (gồm mức tự chủ ask/night). DỪNG.
       - 4b bước code dạng khối 6 dòng, ma trận AC -> bước -> test; walkthrough với người sẽ code. DỪNG.
       - 4c doc_check(plan) tới sạch; rà độc lập theo tier. gate_submit G2.
@@ -57,7 +57,7 @@ states:
     name: Duyệt plan + bảng luật
     gate: G2
     do:
-      - Trình checklist G2; baseline có số thật; bảng luật 3d không còn "chờ"; mức tự chủ đã chốt.
+      - Trình checklist G2; baseline có số thật; có suite cho AC đo bằng suite (gate_submit chặn nếu thiếu), bảng luật 3d không còn "chờ"; mức tự chủ đã chốt.
       - Người duyệt gọi /gate G2 ... (tool tự ghi suite_hashes khi PASS).
     stop: Chờ Tech Lead + người sẽ code xác nhận.
     next: code

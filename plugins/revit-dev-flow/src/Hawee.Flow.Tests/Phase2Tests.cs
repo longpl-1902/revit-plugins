@@ -402,4 +402,32 @@ public class GateSubmitTests
         ex = Assert.Throws<FlowException>(() => gs.Submit("4", "G2"));
         Assert.Contains("baseline", ex.Message);
     }
+
+    [Fact]
+    public void G2_chan_khi_AC_do_bang_suite_ma_chua_co_suite()
+    {
+        using var repo = new TestRepo();
+        new TaskOpener(repo.Ctx(), repo.Runner).Open(new OpenInput("6", "chia-scope"));
+        var dir = Path.Combine(repo.Root, "docs/tasks/6-chia-scope");
+        Text.Write(Path.Combine(dir, "spec.md"), "# Spec\n\n## 5. Hành vi đúng\n\n| # | Kịch bản | Khi | Thì | Đo bằng |\n|---|---|---|---|---|\n" +
+            "| AC1 | K1 | a | b | suite trong Revit: số zone |\n| AC2 | K1 | a | b | unit test |\n| AC3 | K2 | a | b | test thuần / log / tool READ / suite trong ứng dụng thật |\n");
+        var st = StatusFile.ForTask(dir);
+        st.Set("baseline", "baseline.json");
+        st.Set("autonomy", "ask");
+        st.Set("state", "plan");
+        st.Save();
+        Assert.Equal(new[] { "AC1" }, TestDesign.AcsNeedingSuite(Path.Combine(dir, "spec.md")));   // câu mẫu chưa điền không tính
+
+        Assert.Contains("spec có AC đo bằng suite (AC1) mà chưa có suite → gọi /test-design", new Hawee.Flow.Core.Flow.FlowEngine(repo.Ctx()).Next("6"));
+        var ex = Assert.Throws<FlowException>(() => new GateSubmit(repo.Ctx()).Submit("6", "G2"));
+        Assert.Contains("/test-design", ex.Message);
+        Assert.Contains("AC1", ex.Message);
+
+        // người quyết không cần suite → qua
+        st = StatusFile.ForTask(dir);
+        st.Set("test_design", "không cần — chỉ đổi log (Minh)");
+        st.Save();
+        Assert.DoesNotContain("/test-design", new Hawee.Flow.Core.Flow.FlowEngine(repo.Ctx()).Next("6"));
+        Assert.Contains("state g2", new GateSubmit(repo.Ctx()).Submit("6", "G2"));
+    }
 }

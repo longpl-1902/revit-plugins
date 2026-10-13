@@ -8,7 +8,8 @@ disable-model-invocation: true
 # /plan $ARGUMENTS
 
 Gọi `flow_next brief=true` trước (điều kiện vào: G1 PASS/CONCERNS). Plan đã dựng sẵn theo tier — chỉ điền.
-Task chạy trong Revit + spec có AC đo bằng suite mà chưa có suite → `/test-design` trước.
+`flow_next` báo "spec có AC đo bằng suite … mà chưa có suite" → **tự gọi skill `/test-design`** trước 4a (không chỉ nhắc người);
+thiếu bộ dữ liệu thì hỏi chung trong gói 4a. Người quyết không cần suite → họ ghi `status.yaml test_design: "không cần — lý do (người)"`.
 
 **4a — thiết kế cùng DEV**
 1. `baseline_run` trên commit gốc của nhánh tích hợp (tự điền §1.3, lưu baseline.json). Fail sẵn có phải có KI ID.

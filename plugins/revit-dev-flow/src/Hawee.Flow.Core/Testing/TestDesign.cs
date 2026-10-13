@@ -222,6 +222,19 @@ public sealed class TestDesign(ProjectContext ctx, IProcRunner? runner = null)
         return $"{v} ({string.Join(", ", runs)})";
     }
 
+    /// <summary>
+    /// AC ở spec §5 có cột "Đo bằng" là suite / chạy trong Revit (bỏ câu mẫu "test thuần / log / …" chưa điền).
+    /// Dùng chung cho matrix_build, gate_submit G2 và flow_next.
+    /// </summary>
+    public static List<string> AcsNeedingSuite(string specPath)
+    {
+        if (!File.Exists(specPath)) return new();
+        return new MdDoc(specPath).TableRows("5")
+            .Where(r => r.Length >= 5 && Regex.IsMatch(r[0], @"^AC\d+$") && !r[4].StartsWith("test thuần / log")
+                        && Regex.IsMatch(Text.Fold(r[4]), "suite|revit-test|ung dung (that|chu)|trong revit"))
+            .Select(r => r[0]).ToList();
+    }
+
     public string BuildMatrix(string? task)
     {
         var dir = ctx.ResolveTask(task);
@@ -229,7 +242,7 @@ public sealed class TestDesign(ProjectContext ctx, IProcRunner? runner = null)
         var st = status.Data;
         var spec = new MdDoc(Path.Combine(dir, "spec.md"));
         var acRows = spec.TableRows("5").Where(r => Regex.IsMatch(r[0], @"^AC\d+$")).ToList();
-        var needSuite = acRows.Where(r => r.Length >= 5 && Regex.IsMatch(Text.Fold(r[4]), "suite|revit-test|ung dung (that|chu)|trong revit")).Select(r => r[0]).ToList();
+        var needSuite = AcsNeedingSuite(Path.Combine(dir, "spec.md"));
 
         var suiteRules = new List<(string Suite, TestRule Rule)>();
         var gaps = new List<(string Suite, GapRow Gap)>();

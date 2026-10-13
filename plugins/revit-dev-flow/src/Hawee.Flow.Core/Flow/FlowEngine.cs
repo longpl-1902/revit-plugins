@@ -116,7 +116,11 @@ public sealed class FlowEngine(ProjectContext ctx)
         if (state is "plan" or "g2")
         {
             if (st["baseline"].S().Length == 0 && tier != "T0") yield return "chưa có baseline — gọi baseline_run trên commit gốc";
-            if (hasHostTest && st["suites"].Strings().Count == 0) yield return "chưa có suite — nếu spec có AC đo bằng suite: /test-design trước plan";
+            if (st["suites"].Strings().Count == 0 && !Tasks.GateSubmit.SuiteWaived(st)
+                && Testing.TestDesign.AcsNeedingSuite(Path.Combine(dir, "spec.md")) is { Count: > 0 } acs)
+                yield return $"spec có AC đo bằng suite ({string.Join(", ", acs)}) mà chưa có suite → gọi /test-design TRƯỚC 4a (G2 sẽ chặn)";
+            else if (hasHostTest && st["suites"].Strings().Count == 0 && !Tasks.GateSubmit.SuiteWaived(st))
+                yield return "chưa có suite — task chạy trong Revit thì sửa cột Đo bằng ở spec §5 rồi /test-design";
             if (state == "g2" && st["autonomy"].S().Length == 0) yield return "chưa chốt mức tự chủ ask/night";
         }
         if (state is "code" && st["loops"]["build_test"].Int() >= Limit("build_test_loops", 5))

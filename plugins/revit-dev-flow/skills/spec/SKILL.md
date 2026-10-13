@@ -25,7 +25,7 @@ Gói 2 chỉ hỏi điểm chưa chắc → `pack_render`. **DỪNG.** Trả l�
 **3c — chốt**: §9 rule (`rule_for`), §10–§12, §13 chỉ còn CHẶN. `doc_check spec` tới khi không còn CRITICAL/HIGH và lint sạch.
 Rà độc lập theo tier: T1 = `doc_check` đủ; T2 = agent `independent-reviewer`; T3 = 2 lượt, một lượt ngoài phân hệ. Ghi kết quả §15.
 `gate_submit G1` (máy kiểm câu CHẶN, doc_check). **DỪNG** — trình G1: 5 dòng tóm tắt, phát hiện còn lại, câu CHẶN + người quyết.
-Người duyệt dùng `/gate G1 …`. Sau G1: có AC đo bằng suite → `/test-design`, không → `/plan`.
+Người duyệt dùng `/gate G1 …`. Sau G1 → `/plan` (tự gọi `/test-design` trước 4a khi có AC đo bằng suite). AC chạy trong Revit ghi cột Đo bằng là `suite …` để máy nhận ra.
 
 Không tự chọn khi yêu cầu mâu thuẫn code/rule/spec cũ — nêu mâu thuẫn, hỏi. Tối đa 3 gói; người nói "đủ rồi" → câu mở thành giả định (pack_apply tự làm), CHẶN vẫn dừng.
 CR (`status.yaml.cr_of`): gói 1 có câu mức CR (nhỏ/lớn) + bảng mục spec đổi trước → sau; nhỏ: sửa spec gốc, Phiên bản +1, §15; lớn: spec mới `Thay cho`.

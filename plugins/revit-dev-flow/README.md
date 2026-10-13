@@ -43,7 +43,7 @@ Biến môi trường tuỳ chọn: `HAWEE_FLOW_REPO` (gốc repo), `HAWEE_INTEG
 | mọi lúc | `process` (tự nạp) | `flow_next`, `flow_status` | — |
 | 2 nạp ngữ cảnh | `/task-start` | `task_open`, `context_pack`, `rule_for`, `rule_get`, `kb_search` | Q0 tier |
 | 3a–3c spec | `/spec` | `pack_render`, `pack_apply`, `doc_check`, `gate_submit` | mỗi gói câu hỏi, G1 |
-| 3d sinh test | `/test-design` | `dataset_register`, `dataset_check`, `suite_scaffold`, `suite_lint`, `matrix_build` | bảng luật (G2) |
+| 3d sinh test | `/test-design` (`/plan` tự gọi) | `dataset_register`, `dataset_check`, `suite_scaffold`, `suite_lint`, `matrix_build` | bảng luật (G2 chặn khi AC đo bằng suite mà chưa có suite) |
 | 4a–4c plan | `/plan` | `baseline_run`, `pack_render`, `pack_apply`, `doc_check`, `gate_submit` | gói 4a, walkthrough, G2 |
 | 5–6 code | `/implement` | `check_all`, `deviation_add`, `rule_for` | lệch lớn, hết 5 vòng |
 | 7 test Revit | `/verify` (subagent), `/revit-test` | `test_run`, `get_detail`, `record_verdict`, `diagnosis_set`, `matrix_build`, `issue_note_draft` | G3 |

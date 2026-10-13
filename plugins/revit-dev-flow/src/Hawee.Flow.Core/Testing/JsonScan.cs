@@ -34,7 +34,7 @@ public static class JsonScan
     public static List<int> Pids(JsonNode? json, string text)
     {
         var pids = Objects(json).Select(o => Str(o, "pid", "processId", "process_id", "Pid", "ProcessId"))
-            .Where(s => int.TryParse(s, out _)).Select(int.Parse).ToList();
+            .Where(s => int.TryParse(s, out _)).Select(s => int.Parse(s!)).ToList();
         if (pids.Count == 0)
             pids = Regex.Matches(text, @"(?i)\b(?:pid|process\s*id)\D{0,3}(\d{2,7})").Select(m => int.Parse(m.Groups[1].Value)).ToList();
         return pids.Distinct().ToList();

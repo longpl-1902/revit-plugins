@@ -1,3 +1,4 @@
+using Hawee.Flow.Core.Docs;
 using Hawee.Flow.Core.Flow;
 using Hawee.Flow.Core.Infra;
 using Hawee.Flow.Core.Testing;
@@ -22,7 +23,14 @@ public sealed class GateSubmit(ProjectContext ctx)
             case "G1":
                 if (st["open_questions"].Strings() is { Count: > 0 } oq) missing.Add("còn câu CHẶN: " + string.Join(", ", oq));
                 if (!File.Exists(Path.Combine(dir, "spec.md")) && st["tier"].S() != "T0") missing.Add("chưa có spec.md");
-                if (!Directory.GetFiles(dir, "analyze-*.md").Any() && st["tier"].S() != "T0") missing.Add("chưa chạy doc_check");
+                if (st["tier"].S() != "T0")
+                {
+                    // doc_check mới nhất phải sạch (kết luận "có thể trình cổng"), không chỉ là có file analyze
+                    var last = new DirectoryInfo(dir).GetFiles("analyze-*.md").OrderByDescending(f => f.LastWriteTimeUtc).FirstOrDefault();
+                    if (last is null) missing.Add("chưa chạy doc_check spec");
+                    else if (!Text.Read(last.FullName).Contains($"{DocCheck.VerdictPrefix} {DocCheck.VerdictOk}"))
+                        missing.Add($"doc_check gần nhất ({last.Name}) chưa sạch — sửa CRITICAL/HIGH và lỗi lint rồi chạy lại doc_check spec");
+                }
                 break;
             case "G2":
                 if (st["baseline"].S().Length == 0 && st["tier"].S() != "T0") missing.Add("chưa có baseline (baseline_run)");
@@ -33,6 +41,8 @@ public sealed class GateSubmit(ProjectContext ctx)
                     && TestDesign.AcsNeedingSuite(Path.Combine(dir, "spec.md")) is { Count: > 0 } needSuite)
                     missing.Add($"spec có AC đo bằng suite ({string.Join(", ", needSuite)}) nhưng chưa có suite — chạy /test-design "
                                 + "(người quyết không cần suite: status.yaml test_design: \"không cần — <lý do> (<người>)\")");
+                foreach (var p in TestDesign.ProposedLeft(SafeSuitesDir(), st["suites"].Strings()))
+                    missing.Add($"suite còn bản đề xuất chưa đưa thành bản chính: {p} — người duyệt đổi tên thành suite.yaml / rules.md (giữ ID, luật bỏ ghi retired) rồi trình G2");
                 foreach (var s in st["suites"].Strings())
                 {
                     var rf = Path.Combine(SafeSuitesDir() ?? "", s, "rules.md");

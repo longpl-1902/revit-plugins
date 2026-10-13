@@ -41,8 +41,9 @@ public static class DocTools
         => Safe.Run(() => new QuestionPack(Safe.Ctx()).Apply(task, file, answers, by, source, accept_defaults));
 
     [McpServerTool(Name = "doc_check"), Description("doc-lint gom theo mã + kiểm tham chiếu, phủ AC, bất biến, baseline. Ghi analyze-<ngày>.md.")]
-    public static string DocCheckTool([Description("spec | plan | both")] string which = "both", string task = "")
-        => Safe.Run(() => new DocCheck(Safe.Ctx()).Check(task, which));
+    public static string DocCheckTool([Description("spec | plan | both")] string which = "", string task = "",
+        [Description("bí danh của which")] string doc = "")
+        => Safe.Run(() => new DocCheck(Safe.Ctx()).Check(task, which.Length > 0 ? which : doc.Length > 0 ? doc : "both"));
 
     [McpServerTool(Name = "baseline_run"), Description("Bước 4a: test-baseline trên commit gốc → baseline.json + điền plan §1.3.")]
     public static string BaselineRun(string task = "", bool build = true,

@@ -17,7 +17,8 @@ Máy làm phần cơ học, agent viết luật. Định dạng luật + cú ph�
    Cần sửa model giữa chừng → step `purpose: setup` + `why`, tool phải có trong `revit_test.setup_tools`; không có → Chỗ hở.
    Tool của suite không chạy pipeline (chỉ preview / đọc) → `capture: none` (không đòi tracking / điểm kiểm), luật đọc `steps\NN-<tool>.json`.
 4. **Luật**: mỗi AC đo bằng suite → ≥ 1 luật R-xx đủ trường; ngưỡng/sai số spec không nói → `chờ` + câu hỏi (P-001). Không đo được → Chỗ hở, tối đa SUSPECT.
-   Thêm gói luật chung của dự án cho tool có trong steps (giữ ID gói). Suite đã có → sửa `*.proposed.*`, giữ ID, luật bỏ ghi `retired`.
+   Thêm gói luật chung của dự án cho tool có trong steps (giữ ID gói). Suite đã có → sửa `*.proposed.*`, giữ ID, luật bỏ ghi `retired`;
+   người duyệt đổi tên bản đề xuất thành `suite.yaml` / `rules.md` trước G2 (G2 không qua khi còn `*.proposed.*`).
 5. `suite_lint` tới khi chỉ còn luật `chờ`. `matrix_build` → test-design.md (AC không phủ, luật chờ, cần baseline).
    Ghi thêm vào test-design.md (ngoài khối máy sinh): kịch bản K → suite | không áp dụng | thủ công; câu hỏi `chờ` + đề xuất + mặc định; số lần chạy ước lượng.
 6. Gọi từ `/plan` → không dừng riêng: đưa câu `chờ` + chọn bộ dữ liệu vào gói 4a, làm tiếp 4a. Người gọi trực tiếp → **DỪNG** — trả lời 5–10 dòng: bộ dữ liệu (mới / dùng lại, hash khớp), số suite + luật, AC phủ / chỗ hở, câu `chờ` cần trả lời. Bảng luật duyệt ở G2 cùng plan.

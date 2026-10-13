@@ -396,7 +396,10 @@ public class GateSubmitTests
         var gs = new GateSubmit(repo.Ctx());
         var ex = Assert.Throws<FlowException>(() => gs.Submit("4", "G1"));
         Assert.Contains("doc_check", ex.Message);
-        Text.Write(Path.Combine(dir, "analyze-2026-10-12.md"), "x");
+        Text.Write(Path.Combine(dir, "analyze-2026-10-12.md"), "# /analyze\n\nKết luận: chưa trình cổng được\n");
+        ex = Assert.Throws<FlowException>(() => gs.Submit("4", "G1"));
+        Assert.Contains("chưa sạch", ex.Message);                       // có file analyze chưa đủ, phải sạch
+        Text.Write(Path.Combine(dir, "analyze-2026-10-12.md"), "# /analyze\n\nKết luận: có thể trình cổng\n");
         Assert.Contains("state g1", gs.Submit("4", "G1"));
         Assert.Equal("chờ G1", StatusFile.ForTask(dir).Get("spec"));
         ex = Assert.Throws<FlowException>(() => gs.Submit("4", "G2"));

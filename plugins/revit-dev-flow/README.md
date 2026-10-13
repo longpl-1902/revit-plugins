@@ -28,7 +28,7 @@ server **cũ** có thể đang giữ khoá DLL: hook đổi tên file đang bị
 rồi chạy `powershell -ExecutionPolicy Bypass -File "<thư mục plugin>\scripts\ensure-server.ps1" -Force` và `/mcp`.
 
 **Chạy suite Revit (`test_run`)**: runner tự kết nối gateway `revit_test.mcp` (vd. `hawee`) và `revit_test.capture.tracking_mcp`
-(vd. `bim-tracking`) như một MCP client. Thứ tự tìm cấu hình: biến `HAWEE_FLOW_MCP_<TÊN>` = JSON `{command, args, env}` /
+(vd. `bim-tracking`) như một MCP client (đọc `${VAR}` / `${VAR:-mặc định}` và `headers` như Claude Code). Thứ tự tìm cấu hình: biến `HAWEE_FLOW_MCP_<TÊN>` = JSON `{command, args, env}` /
 `{url}` → `.mcp.json` ở gốc repo dự án → `.hawee-flow/mcp.json` → `~/.claude.json` (khai bằng `claude mcp add`, cấp local
 của repo rồi cấp user). Khai server ở đâu cho Claude Code thì runner cũng tìm được, không cần chép. `desktop-commander` không còn cần cho agent.
 
@@ -104,6 +104,15 @@ luật hai máy chấm ngược nhau (PASS ↔ FAIL) → chuyển **cần agent*
 | `post-edit-compact.ps1` | PostToolUse Edit/Write | chỉ khi `HAWEE_FLOW_POST_EDIT=1`: cùng lint với `post-edit-check.ps1` của Base nhưng ≤ 8 dòng — bật thì **bỏ** hook gốc trong `.claude/settings.json` |
 
 Hook `guard-protected-paths` / `post-edit-check` của dự án vẫn để ở `.claude/settings.json` như cũ (plugin không lặp).
+
+**Luật an toàn trong runner** (`Policy.cs`, chặt hơn `revit-test-guard.ps1` của Base ở 2 chỗ):
+- Revit hỏng khi khởi động (không có PID) → không gọi gì vào Revit; trước **mọi** step và sau step cuối, document đang mở phải nằm
+  trong `RUN_DIR` (bản sao); tool runner tự quản (`tools.open_document / close_document / call / list_*`) không được làm step.
+- `forbidden … when: "k=v"` mà args của step không có `k` → **chặn** (Base cho qua): ghi rõ giá trị an toàn, vd. `dry_run: true`.
+- Luật nhìn ảnh: `record_verdict PASS` chỉ khi run có ảnh và note nêu đúng tên file ảnh đã xem.
+- G2 PASS ghi `approved.json` vào folder suite; `/revit-test` chạy lẻ trên suite đã khoá mà luật đổi → chạy nhưng đánh dấu
+  "LUẬT CHƯA DUYỆT"; ma trận AC (`matrix_build`) chỉ lấy run `purpose=task` của phiên kiểm chứng hiện tại.
+- G2 không qua khi suite còn `*.proposed.*` (đổi tên thành bản chính trước); G1 cần `doc_check` gần nhất sạch.
 An toàn khi chạy Revit (tool cấm, `allow_draw`, `setup_tools` có người duyệt, document phải nằm trong `RUN_DIR`, chỉ kill
 đúng PID, hash model gốc trước = sau) nằm **trong runner** — agent không gọi tool ghi vào Revit nữa.
 

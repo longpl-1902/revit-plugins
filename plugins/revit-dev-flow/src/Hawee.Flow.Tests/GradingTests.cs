@@ -46,10 +46,10 @@ public class GradingTests : IDisposable
     public void Parse_cu_phap()
     {
         var c = Grader.Parse("giao(View, Keyplan) theo SheetNumber = 0");
-        Assert.Equal(("giao", "SheetNumber", "=", "0"), (c.Name, c.GroupBy, c.Op, c.Rhs));
+        Assert.Equal(("giao", "theo SheetNumber = 0"), (c.Name, c.Rest));
         Assert.Equal(new[] { "View", "Keyplan" }, c.Args);
-        var t = Grader.Parse("trong(Keyplan, Titleblock) theo SheetNumber ± 1,5 mm");
-        Assert.Equal(1.5, t.Tol);
+        Assert.Equal("theo SheetNumber ± 1,5 mm", Grader.Parse("trong(Keyplan, Titleblock) theo SheetNumber ± 1,5 mm").Rest);
+        Assert.Equal(new[] { "a.json → x[ViewName bắt đầu bằng \"V, 1\"]" }, Grader.Parse("đếm(a.json → x[ViewName bắt đầu bằng \"V, 1\"]) = 0").Args);
         Assert.Equal("dem", Grader.Parse("đếm(a.json → x[type=Viewport]) theo SheetNumber = 1").Name);
         Assert.Equal("khong co dong", Grader.Parse("không có dòng(addin.log, \"ERROR, x\")").Name);
         Assert.Equal(new[] { "addin.log", "\"ERROR, x\"" }, Grader.Parse("có dòng(addin.log, \"ERROR, x\")").Args);
@@ -74,7 +74,7 @@ public class GradingTests : IDisposable
         var g = G("giao(Label, Keyplan) theo SheetNumber = 0");
         Assert.Equal(Verdicts.Fail, g.Groups.Single(x => x.Group == "A-101").Verdict);       // label đè keyplan 300 mm²
         Assert.Equal("300 mm²", g.Groups.Single(x => x.Group == "A-101").Actual);
-        Assert.Equal(Verdicts.NotMeasurable, g.Groups.Single(x => x.Group == "A-102").Verdict); // A-102 không có Label
+        Assert.DoesNotContain(g.Groups, x => x.Group == "A-102");                              // A-102 không có Label → không có nhóm để giao
         var t = G("trong(Keyplan, Titleblock) theo SheetNumber ± 1");
         Assert.Equal(Verdicts.Pass, t.Groups.Single(x => x.Group == "A-101").Verdict);
         Assert.Equal(Verdicts.Fail, t.Groups.Single(x => x.Group == "A-102").Verdict);        // 460 > 420
@@ -84,7 +84,9 @@ public class GradingTests : IDisposable
     public void Bang_cai_dat_thu_tu_log_step()
     {
         Assert.Equal(Verdicts.Pass, G("bằng(cài đặt(config.json, Keyplan.Anchor), TopRight)").Verdict);
-        Assert.Equal(Verdicts.Pass, G("bằng(đếm, 2)".Replace("đếm", "sheet_components.json → sheets")).Verdict);
+        // nguồn ra nhiều phần tử không phải một giá trị → agent chấm (rule-eval.ps1 cũng vậy), không lấy số phần tử
+        Assert.Equal(Verdicts.Agent, G("bằng(sheet_components.json → sheets, 2)").Verdict);
+        Assert.Equal(Verdicts.Fail, G("bằng(cài đặt(config.json, Keyplan.Anchor), topright)").Verdict);   // so chuỗi phân biệt hoa thường
         Assert.Equal(Verdicts.Pass, G("thứ tự(sheet_components.json → sheets.SheetNumber) = cài đặt(config.json, Order)").Verdict);
         Assert.Equal(Verdicts.Fail, G("thứ tự(sheet_components.json → sheets.SheetNumber) = [A-102, A-101]").Verdict);
         Assert.Equal(Verdicts.Pass, G("có dòng(addin.log, \"ERROR boom\")").Verdict);
@@ -119,10 +121,11 @@ public class GradingTests : IDisposable
         Assert.Equal(Verdicts.Fail, T("bằng(99.9, 100)", 0.01).Verdict);
         // "± x" trong luật thắng sai số mặc định
         Assert.Equal(Verdicts.Fail, T("bằng(99.99999997, 100) ± 0", 0.01).Verdict);
-        // khớp baseline đọc được số dạng mũ: 1.2E-05 == 0.000012
+        // khớp baseline không ghi ± → so chuỗi y nguyên như rule-eval.ps1; có ± → so số (đọc được dạng mũ)
         Text.Write(Path.Combine(_suite, "baseline", "e.json"), """[ { "type": "A", "v": "0.000012" } ]""");
         Text.Write(Path.Combine(_run, "data", "e.json"), """[ { "type": "A", "v": "1.2E-05" } ]""");
-        Assert.Equal(Verdicts.Pass, T("khớp baseline(e.json, khoá type, trường v)", 0).Verdict);
+        Assert.Equal(Verdicts.Fail, T("khớp baseline(e.json, khoá type, trường v)", 0).Verdict);
+        Assert.Equal(Verdicts.Pass, T("khớp baseline(e.json, khoá type, trường v) ± 0.0001", 0).Verdict);
     }
 
     [Fact]

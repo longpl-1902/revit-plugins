@@ -110,6 +110,7 @@ public sealed class TestRunner(
         var graded = Grade(s);
         Step(s, "7b evidence", () => Evidence(s, graded));
         Step(s, "8 báo cáo", () => Report(s, graded));
+        Step(s, "8b máy chấm Base (rule-eval)", () => CrossCheck(s, graded));
         File.WriteAllText(Path.Combine(s.RunDir, "run.log"), s.Log.ToString());
 
         var summary = Summary(s.RunDir, autonomy);
@@ -559,7 +560,8 @@ public sealed class TestRunner(
             var g = new Grader(data) { DefaultTol = cfg.DefaultTolMm }.Grade(rule, sheets);
             var key = GradingKey(rule, g.FilesRead, s.Data, g.Verdict);
             keys[rule.Id] = key;
-            if (g.Groups.Count == 0)
+            // luật cần agent (kể cả khi chỉ một phép là AGENT) → một dòng cho agent chấm cả luật
+            if (g.Groups.Count == 0 || g.Verdict == Verdicts.Agent)
             {
                 var v = g.Verdict;
                 var reason = g.Reason;
@@ -735,6 +737,54 @@ public sealed class TestRunner(
         Text.Write(Path.Combine(s.RunDir, "report.md"), md.ToString());
     }
 
+    // ---- bước 8b: chấm chéo bằng rule-eval.ps1 của Base --------------------------------------------------
+
+    /// <summary>
+    /// Base 0.8 chạy rule-eval.ps1 "bóng" sau khi ghi result.json. Ở plugin verdict máy (C#) là chính thức, rule-eval.ps1 là máy thứ hai:
+    /// luật hai máy chấm ngược nhau (PASS ↔ FAIL) → chuyển agent chấm, ghi lại result.json / report.md. Không bao giờ tự PASS.
+    /// </summary>
+    private void CrossCheck(RunState s, List<GradedRule> graded)
+    {
+        var info = new JsonObject { ["tool"] = "rule-eval.ps1" };
+        if (s.Info["grading"] is JsonObject gi) gi["cross_check"] = info;
+        try
+        {
+            var script = ctx.BaseTool("rule-eval.ps1");
+            if (!File.Exists(script))
+            {
+                info["status"] = "chưa chạy máy chấm — Base chưa có core/tools/rule-eval.ps1";
+                s.Notes.Add("Máy chấm Base: chưa chạy (không có core/tools/rule-eval.ps1) — verdict chỉ từ bộ chấm C#.");
+                return;
+            }
+            File.Delete(Path.Combine(s.Data, "rule-eval.json"));
+            var r = Ps.RunFile(proc, script, new[] { "-RunDir", s.RunDir, "-Rules", Path.Combine(s.Suite.Dir, "rules.md"), "-Baseline", Path.Combine(s.Suite.Dir, "baseline") }, ctx.Root, TimeSpan.FromMinutes(5));
+            info["exit"] = r.ExitCode;
+            var j = ReadJson(Path.Combine(s.Data, "rule-eval.json"));
+            if (j?["results"] is not JsonArray results)
+            {
+                info["status"] = $"chưa chạy máy chấm — rule-eval lỗi (exit {r.ExitCode}): {Text.Clip(string.Join(" | ", r.Lines.TakeLast(2)), 160)}";
+                s.Notes.Add("Máy chấm Base: " + info["status"]);
+                return;
+            }
+            var lech = results.OfType<JsonObject>().Where(x => x["match"]?.ToString() == "LECH").ToList();
+            info["status"] = "đã chạy";
+            info["mismatch"] = lech.Count;
+            info["ids"] = new JsonArray(lech.Select(x => (JsonNode)(x["id"]?.ToString() ?? "")).ToArray());
+            if (lech.Count == 0) return;
+            foreach (var x in lech)
+            {
+                var id = x["id"]?.ToString() ?? "";
+                var detail = string.Join("; ", (x["clauses"] as JsonArray ?? new JsonArray()).Select(c => $"{c?["verdict"]}: {c?["detail"]}"));
+                var why = $"C# {x["agent"]} ≠ rule-eval {x["verdict"]} ({Text.Clip(detail, 160)}) — agent chấm";
+                for (var i = 0; i < graded.Count; i++)
+                    if (graded[i].Rule.Id == id) graded[i] = graded[i] with { Verdict = Verdicts.Agent, Reason = why, Evidence = why };
+                s.Notes.Add($"Máy chấm lệch {id}: {why}. Xem rule-eval.md; sai ở bộ chấm C# hay cú pháp luật → báo người duy trì plugin.");
+            }
+            Report(s, graded);
+        }
+        finally { WriteInfo(s); }
+    }
+
     // ---- test-summary + tóm tắt cho agent ------------------------------------------------------------------
 
     public sealed record SummaryInfo(string Outcome, string Scope, string Reason, string Next, int FixesDone, int MaxFixes);
@@ -766,6 +816,10 @@ public sealed class TestRunner(
             sb.AppendLine($"{g.Verdict} {g.Rule.Id} {g.Group}: kỳ vọng {Text.Clip(g.Expected, 50)} · thực tế {Text.Clip(g.Actual, 60)}{(g.Reason.Length > 0 ? " · " + Text.Clip(g.Reason, 80) : "")}");
         foreach (var g in graded.Where(g => g.Verdict == Verdicts.NotMeasurable).Take(3))
             sb.AppendLine($"NOT_MEASURABLE {g.Rule.Id} {g.Group}: {Text.Clip(g.Reason.Length > 0 ? g.Reason : g.Evidence, 120)}");
+        if (s.Info["grading"]?["cross_check"] is JsonObject cc)
+            sb.AppendLine(cc["status"]?.ToString() == "đã chạy"
+                ? $"rule-eval: lệch {cc["mismatch"]}{(cc["ids"] is JsonArray ids && ids.Count > 0 ? " (" + string.Join(", ", ids) + ") → chuyển agent chấm" : "")}"
+                : $"rule-eval: {cc["status"]}");
         var agent = graded.Where(g => g.Verdict == Verdicts.Agent).ToList();
         if (agent.Count > 0) sb.AppendLine($"Cần agent chấm: {string.Join(", ", agent.Select(a => a.Rule.Id).Distinct())} → get_detail kind=rule, xem ảnh, rồi record_verdict");
         if (File.Exists(Path.Combine(s.Data, "diagnosis.json")))

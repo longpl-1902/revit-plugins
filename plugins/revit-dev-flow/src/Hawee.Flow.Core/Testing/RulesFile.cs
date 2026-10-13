@@ -10,6 +10,18 @@ public sealed record TestRule(string Id, string Name, bool Retired, string Appli
     public string Expect => F("Kỳ vọng");
     public string Tolerance => F("Sai số");
     public string Grader => F("Máy chấm");
+
+    /// <summary>Các phép của dòng Máy chấm: mỗi phép trong một cặp `…` (nối bằng "và"); không có backtick → cả dòng là một phép.</summary>
+    public List<string> Clauses
+    {
+        get
+        {
+            var g = Grader.Normalize(System.Text.NormalizationForm.FormC);
+            var ms = Regex.Matches(g, "`([^`]+)`");
+            var list = ms.Count > 0 ? ms.Select(m => m.Groups[1].Value.Trim()) : new[] { g.Trim() };
+            return list.Where(c => c.Length > 0 && c != "và" && c != "va").ToList();
+        }
+    }
     public string Evidence => F("Ảnh minh chứng");
     public bool Pending => Regex.IsMatch(Text.Fold(Tolerance + " " + Expect), @"\bcho\b");
 
@@ -36,7 +48,8 @@ public sealed record GapRow(string Ac, string Missing, string When, string Meanw
 /// <summary>rules.md của suite (suite-format.md §2): luật R-xx (5–6 trường + AC, Máy chấm), "Áp dụng cho", bảng "Chỗ hở".</summary>
 public sealed class RulesFile
 {
-    private static readonly Regex Heading = new(@"^###\s+([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+)\s+[—–-]\s+(.+?)\s*$", RegexOptions.Compiled);
+    // như rule-eval.ps1: "### R-01", "### R-01 — tên", "### R-14 - bỏ - retired 2026-10-12"
+    private static readonly Regex Heading = new(@"^###\s+([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+)\b(.*)$", RegexOptions.Compiled);
     private static readonly Regex FieldRx = new(@"^-\s+(?:\*\*)?([^:*]{1,40}?)(?:\*\*)?:\s*(?:\*\*)?\s*(.*)$", RegexOptions.Compiled);
 
     public List<TestRule> Rules { get; } = new();
@@ -48,7 +61,7 @@ public sealed class RulesFile
     public static RulesFile Parse(string text)
     {
         var rf = new RulesFile();
-        var lines = text.Split('\n');
+        var lines = text.Normalize(System.Text.NormalizationForm.FormC).Replace("\r", "").Split('\n');
         var applies = "mọi sheet";
         rf.Header = string.Join('\n', lines.TakeWhile(l => !l.StartsWith("## ")));
         for (var i = 0; i < lines.Length; i++)
@@ -79,9 +92,9 @@ public sealed class RulesFile
                 if (fm.Success) { last = fm.Groups[1].Value.Trim(); fields[last] = fm.Groups[2].Value.Trim(); }
                 else if (last is not null && lines[k].StartsWith("  ") && lines[k].Trim().Length > 0) fields[last] += " " + lines[k].Trim();
             }
-            var title = m.Groups[2].Value;
-            var retired = Regex.IsMatch(title, @"·\s*retired");
-            var name = Regex.Replace(title, @"\s*·\s*retired.*$", "").Trim();
+            var title = Regex.Replace(m.Groups[2].Value, @"^\s*[—–-]\s*", "").Trim();
+            var retired = Regex.IsMatch(title, @"\bretired\b", RegexOptions.IgnoreCase);
+            var name = Regex.Replace(title, @"\s*·\s*retired.*$", "", RegexOptions.IgnoreCase).Trim();
             rf.Rules.Add(new TestRule(m.Groups[1].Value, name, retired, applies, fields, string.Join('\n', lines[start..k]).TrimEnd()));
             i = k - 1;
         }

@@ -61,12 +61,27 @@ Mỗi bước: `flow_next` trả ≤ 15 dòng (việc, tool, điều kiện cổ
 | **test_run**: môi trường (AddInId trùng, DLL ký), Revit + bản sao, step có chặn tool cấm, tracking + điểm kiểm, cắt log, reconcile, chẩn đoán gợi ý, chấm "Máy chấm", evidence, report, dọn dẹp, test-summary | nhìn ảnh (`record_verdict`), xác nhận chẩn đoán (`diagnosis_set`), DECIDE mức night |
 | gói review, handoff nháp, ki-report | review đối kháng, điền handoff |
 
-"Máy chấm" hỗ trợ: `đếm`, `giao`, `trong`, `bằng`, `thứ tự`, `khớp baseline`, `có dòng`, `không có dòng`, `step xong`;
-`ảnh(...)` và cú pháp lạ chuyển cho agent. bbox đọc được: `{minX,minY,maxX,maxY}`, `{min:{x,y},max:{x,y}}`,
-`{x,y,width,height}`, `[x1,y1,x2,y2]` (mm). Dữ liệu không đúng hình → `NOT_MEASURABLE` kèm lý do, không bao giờ `PASS`.
-Luật so số thực (`bằng`, `trong`, `giao`, `khớp baseline`) không ghi `± x` dùng sai số `revit_test.default_tol_mm`
-(mặc định 0.01 mm — đổi feet → mm cho ra 99.99999997 thay vì 100); `đếm` luôn so đúng. Verdict agent chấm bằng mắt chỉ
-được dùng lại ở lượt sau khi luật **và ảnh / dữ liệu** không đổi.
+"Máy chấm" theo **đúng cú pháp và ngữ nghĩa của `core/tools/rule-eval.ps1`** (Base 0.8, `suite-format.md` §2.1 "Máy thực thi"):
+`đếm`, `giao`, `trong`, `bằng`, `thứ tự`, `khớp baseline`, `có dòng`, `không có dòng`, `step xong`. Mỗi phép một cặp `` ` ``,
+nhiều phép nối bằng "và" (luật lấy verdict xấu nhất FAIL > AGENT > NOT_MEASURABLE > PASS); lọc `[Trường=…]`, `!=`,
+`bắt đầu bằng "…"`, `chứa "…"`, `không chứa "…"` (so đúng từng ký tự, trên chính phần tử); bỏ tên file → file của phép trước,
+không có thì file `.json` duy nhất trong `data\` có thuộc tính gốc trùng; `theo <khoá>` lấy khoá ở phần tử hoặc cha gần nhất,
+nhóm rỗng vẫn tính (= 0). Còn chỗ trống `<…>`, cú pháp lạ, `ảnh(...)` → **cần agent**; thiếu file / baseline, ngưỡng `chờ` →
+`NOT_MEASURABLE`; không bao giờ đoán thành `PASS`. Bộ test `RuleEvalConformanceTests` chép nguyên fixture của
+`rule-eval.tests.ps1` — 26 luật phải ra cùng verdict.
+
+Mở rộng của plugin (chỉ ở chỗ `rule-eval.ps1` ra AGENT, trừ `default_tol_mm`): tên loại trần `giao(Label, Keyplan)` (tìm theo
+`type`/`kind`/… trong `*component*.json`), `cài đặt(<file>, <khoá>)` trong `bằng` / `thứ tự`, bbox dạng `{minX..maxY}`,
+`{min:{x,y},max:{x,y}}`, `{x,y,width,height}`, `[x1,y1,x2,y2]`, `± x` ở `giao`, thêm sheet trong "Áp dụng cho" làm nhóm khi khoá là
+`Sheet…`. Sai số khi luật không ghi `± x`: `revit_test.default_tol_mm`, **mặc định 0 như Base** (đổi feet → mm cho ra
+99.99999997 → ghi `± 0.01` vào luật, `suite_lint` cảnh báo `rule-tol`). Verdict agent chấm bằng mắt chỉ được dùng lại ở lượt
+sau khi luật **và ảnh / dữ liệu** không đổi.
+
+**Lệch có chủ ý so với Base 0.8 (chạy bóng):** Base coi verdict agent trong `result.json` là chính thức và chạy
+`rule-eval.ps1` bóng để so. Plugin coi verdict máy (C#) là chính thức để agent không phải chấm lại mọi luật, rồi ở bước 8b
+gọi chính `rule-eval.ps1` của Base làm máy thứ hai (`data\rule-eval.json` + `rule-eval.md`, `run-info.json.grading.cross_check`):
+luật hai máy chấm ngược nhau (PASS ↔ FAIL) → chuyển **cần agent**, ghi lại `result.json` / `report.md` kèm đề xuất. Base chưa có
+`rule-eval.ps1` hoặc máy không có PowerShell → ghi "chưa chạy máy chấm", không chặn.
 
 Định dạng file giữ nguyên để script cũ của Base vẫn dùng được: `status.yaml`, `suite.yaml`, `rules.md`,
 `dataset.yaml`, `run-info.json`, `result.json`, `data\step_status.json`, `data\checkpoints\<step>\outputs.json`,

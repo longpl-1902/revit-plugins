@@ -13,6 +13,6 @@ Mỗi suite (tuần tự; suite trước lỗi vẫn chạy suite sau): `test_ru
 Revit phải đang đóng; không có tool `test_run` = hawee-flow chưa nối → báo người gõ `/mcp`, dừng (không nhờ người mở Revit / chạy tay).
 Runner tự làm bước 0–10 (môi trường, Revit, bản sao model, step có chặn tool cấm, tracking + điểm kiểm, đối chiếu log, chấm, evidence, dọn dẹp).
 
-Sau mỗi suite: luật "cần agent" (ảnh, cú pháp máy không đọc được, hoặc bộ chấm C# lệch `rule-eval.ps1` — dòng `rule-eval: lệch …`) → `get_detail kind=rule`, xem ảnh / dữ liệu, `record_verdict`. Không tự sửa code ở lệnh này (vòng sửa thuộc `/verify`).
+Kết quả tool từng step: `get_detail kind=steps` (file `data\steps\NN-<tool>.json`). Sau mỗi suite: luật "cần agent" (ảnh, cú pháp máy không đọc được, hoặc bộ chấm C# lệch `rule-eval.ps1` — dòng `rule-eval: lệch …`) → `get_detail kind=rule`, xem ảnh / dữ liệu, `record_verdict`. Không tự sửa code ở lệnh này (vòng sửa thuộc `/verify`).
 Trả lời: bảng suite · kết luận test-summary · số PASS / FAIL / cần người · đường dẫn report.md. Không dán dữ liệu thô.
 Chưa có baseline → nhắc người xem kết quả và chép `runs\<run>\data\*` sang `baseline\` nếu đúng.

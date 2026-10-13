@@ -15,6 +15,7 @@ Máy làm phần cơ học, agent viết luật. Định dạng luật + cú ph�
 3. **Suite**: `suite_scaffold` (một suite cho mỗi tổ hợp bộ dữ liệu × biến thể × chuỗi bước; hậu tố `bien`, `baseline`…).
    Sửa `suite.yaml`: steps theo spec §7, đường dẫn `'{dataset}\…'` (nháy đơn), timeouts, `manual_steps`.
    Cần sửa model giữa chừng → step `purpose: setup` + `why`, tool phải có trong `revit_test.setup_tools`; không có → Chỗ hở.
+   Tool của suite không chạy pipeline (chỉ preview / đọc) → `capture: none` (không đòi tracking / điểm kiểm), luật đọc `steps\NN-<tool>.json`.
 4. **Luật**: mỗi AC đo bằng suite → ≥ 1 luật R-xx đủ trường; ngưỡng/sai số spec không nói → `chờ` + câu hỏi (P-001). Không đo được → Chỗ hở, tối đa SUSPECT.
    Thêm gói luật chung của dự án cho tool có trong steps (giữ ID gói). Suite đã có → sửa `*.proposed.*`, giữ ID, luật bỏ ghi `retired`.
 5. `suite_lint` tới khi chỉ còn luật `chờ`. `matrix_build` → test-design.md (AC không phủ, luật chờ, cần baseline).

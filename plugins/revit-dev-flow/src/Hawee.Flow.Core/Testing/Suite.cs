@@ -30,6 +30,9 @@ public sealed class Suite
     public List<SuiteStep> Steps { get; init; } = new();
     public List<Checkpoint> Checkpoints { get; init; } = new();
     public List<string> ManualSteps { get; init; } = new();
+    /// <summary>suite.yaml "capture: none" (hoặc capture.source: none): tool của suite không chạy pipeline (vd. chỉ preview) →
+    /// không đọc tracking / điểm kiểm / run_id, không đối chiếu log; luật chấm trên data\steps\NN-&lt;tool&gt;.json.</summary>
+    public bool NoCapture { get; init; }
     public Y Raw { get; init; } = Y.Missing;
 
     public static Suite Load(string dir)
@@ -58,6 +61,7 @@ public sealed class Suite
                 s["purpose"].S("action"), s["why"].S(), s["on_error"].S("stop"))).ToList(),
             Checkpoints = ParseCheckpoints(y["checkpoints"]),
             ManualSteps = y["manual_steps"].Strings(),
+            NoCapture = y["capture"].S().Equals("none", StringComparison.OrdinalIgnoreCase) || y["capture"]["source"].S().Equals("none", StringComparison.OrdinalIgnoreCase),
             Raw = y,
         };
     }

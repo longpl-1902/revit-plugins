@@ -271,6 +271,62 @@ public class RunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task Capture_none_cham_tren_ket_qua_step()
+    {
+        using var repo = Repo();
+        Suite("  - { tool: preview_zone_split, args: { scope_box: 'Scope Box 67' } }\n  - { tool: preview_zone_split, args: { scope_box: 'Scope Box 67' } }\ncapture: none", """
+            # Luật
+
+            ### R-01 — Scale nhỏ nhất và số zone
+            - AC: AC1
+            - Kỳ vọng: theo spec (AC1): MIN 1:145, 3 zone ở lần gọi thứ hai
+            - Sai số: không
+            - Máy chấm: `bằng(steps\01-preview_zone_split.json → MinScale, "1:145")` và `đếm(steps\02-preview_zone_split.json → Zones[]) = 3`
+            """);
+        FakeScripts(repo);
+        var host = new FakeHost();
+        var gw = new FakeGateway(host, LogFile)
+        {
+            StepHook = (tool, a) => new ToolCall(true, "", JsonNode.Parse("""{ "MinScale": "1:145", "Zones": [ { "Name": "Z1" }, { "Name": "Z2" }, { "Name": "Z3" } ] }""")),
+        };
+        var trackingConnects = 0;
+        var runner = new TestRunner(repo.Ctx(), RunnerConfig.From(repo.Ctx()),
+            name => { if (name != "hawee") trackingConnects++; return Task.FromResult<IToolClient>(name == "hawee" ? gw : new FakeTracking()); }, host, repo.Runner) { Poll = 0 };
+        var r = await runner.Run(new RunRequest("1-main"));
+
+        Assert.Contains("1 PASS", r);
+        Assert.Contains("test-summary: PASS", r);
+        Assert.Equal(0, trackingConnects);
+        Assert.DoesNotContain(repo.Runner.Calls, c => c.Args.Any(a => a.EndsWith("host-test-reconcile.ps1")));
+        var run = LatestRun();
+        Assert.True(File.Exists(Path.Combine(run, "data", "steps", "01-preview_zone_split.json")));
+        Assert.True(File.Exists(Path.Combine(run, "data", "steps", "02-preview_zone_split.json")));
+        Assert.False(File.Exists(Path.Combine(run, "data", "reconcile.json")));
+        Assert.Contains("capture: none", File.ReadAllText(Path.Combine(run, "data", "step_status.json")));
+        Assert.Contains("Kết quả step", File.ReadAllText(Path.Combine(run, "report.md")));
+
+        // get_detail / record_verdict không truyền suite → suite của lần chạy gần nhất
+        var store = new RunStore(repo.Ctx(), RunnerConfig.From(repo.Ctx()), repo.Runner);
+        Assert.Contains("01-preview_zone_split.json", store.Detail("", "", "steps", "", 15));
+        Assert.Contains("R-01", store.Detail("", "", "rule", "R-01", 15));
+        Assert.Contains("R-01: SUSPECT", store.RecordVerdict("", "", "R-01", "", "SUSPECT", "xem lại"));
+    }
+
+    [Fact]
+    public async Task Ket_qua_step_luu_ca_khi_loi()
+    {
+        using var repo = Repo();
+        Suite("  - { tool: preview_zone_split, args: {}, on_error: continue }");
+        FakeScripts(repo);
+        var (runner, gw, _) = Make(repo);
+        gw.StepHook = (tool, a) => new ToolCall(false, "Scope box không tồn tại", null);
+        await runner.Run(new RunRequest("1-main"));
+        var f = JsonNode.Parse(File.ReadAllText(Path.Combine(LatestRun(), "data", "steps", "01-preview_zone_split.json")))!;
+        Assert.False(f["ok"]!.GetValue<bool>());
+        Assert.Equal("Scope box không tồn tại", f["text"]!.ToString());
+    }
+
+    [Fact]
     public async Task Tool_cam_bi_chan_tai_runner()
     {
         using var repo = Repo();

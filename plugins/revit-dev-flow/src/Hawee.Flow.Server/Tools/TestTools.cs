@@ -33,7 +33,8 @@ public static class TestTools
         });
 
     [McpServerTool(Name = "get_detail"), Description("Chi tiết một lần chạy: kind = rule | log | finding | diagnosis | steps | summary | files.")]
-    public static string GetDetail(string suite, [Description("rule | log | finding | diagnosis | steps | summary | files")] string kind,
+    public static string GetDetail([Description("Tên suite; trống = suite của lần test_run gần nhất")] string suite = "",
+        [Description("rule | log | finding | diagnosis | steps | summary | files")] string kind = "summary",
         [Description("R-xx (rule), số dòng (log), mã phát hiện / step (finding)")] string @ref = "",
         [Description("Trống = lần chạy mới nhất")] string run = "", int window = 15)
         => Safe.Run(() =>
@@ -43,8 +44,9 @@ public static class TestTools
         });
 
     [McpServerTool(Name = "record_verdict"), Description("Agent chấm luật cần mắt sau khi xem ảnh/dữ liệu; chạy lại test-summary.")]
-    public static string RecordVerdict(string suite, [Description("R-xx")] string rule, [Description("PASS | FAIL | SUSPECT | NOT_MEASURABLE")] string verdict,
-        [Description("Đã kiểm gì, thấy gì (bằng chứng)")] string note, [Description("Sheet; trống = mọi sheet của luật")] string sheet = "",
+    public static string RecordVerdict([Description("R-xx")] string rule = "", [Description("PASS | FAIL | SUSPECT | NOT_MEASURABLE")] string verdict = "",
+        [Description("Đã kiểm gì, thấy gì (bằng chứng)")] string note = "", [Description("Tên suite; trống = suite của lần test_run gần nhất")] string suite = "",
+        [Description("Sheet; trống = mọi sheet của luật")] string sheet = "",
         string run = "")
         => Safe.Run(() =>
         {
@@ -53,8 +55,8 @@ public static class TestTools
         });
 
     [McpServerTool(Name = "diagnosis_set"), Description("Xác nhận / sửa chẩn đoán lỗi gốc (máy chỉ gợi ý); chạy lại test-summary.")]
-    public static string DiagnosisSet(string suite, [Description("CODE | INPUT | TRACKING | ENV | DECISION | UNKNOWN")] string @class,
-        [Description("file:dòng hoặc dòng log nguyên văn")] string evidence,
+    public static string DiagnosisSet([Description("CODE | INPUT | TRACKING | ENV | DECISION | UNKNOWN")] string @class = "",
+        [Description("file:dòng hoặc dòng log nguyên văn")] string evidence = "", [Description("Tên suite; trống = suite của lần test_run gần nhất")] string suite = "",
         [Description("trống = máy tính từ evidence × diff của task; khai khác máy → lỗi")] string in_task_diff = "", [Description("KI-… nếu thuộc known-issue; trống = giữ, - = xoá")] string ki = "",
         [Description("night: true | false")] string blocks_task = "", [Description("night: code | test_data")] string fix_target = "",
         string run = "")

@@ -17,8 +17,23 @@ public sealed class RunStore(ProjectContext ctx, RunnerConfig cfg, IProcRunner? 
     private readonly TestPaths _paths = new(ctx);
     private static readonly JsonSerializerOptions JsonOut = new() { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
+    /// <summary>suite trống → suite có lần chạy mới nhất trong suites_dir (thường là lần test_run vừa xong).</summary>
+    public string ResolveSuite(string suite)
+    {
+        if (suite.Trim().Length > 0) return suite.Trim();
+        var root = _paths.SuitesDir;
+        var best = (Directory.Exists(root) ? Directory.GetDirectories(root) : Array.Empty<string>())
+            .Select(d => (Name: Path.GetFileName(d), Runs: Path.Combine(d, "runs")))
+            .Where(x => Directory.Exists(x.Runs))
+            .Select(x => (x.Name, Last: Directory.GetDirectories(x.Runs).Select(Path.GetFileName).Max(StringComparer.Ordinal)))
+            .Where(x => x.Last is not null)
+            .OrderByDescending(x => x.Last, StringComparer.Ordinal).FirstOrDefault();
+        return best.Name ?? throw new FlowException("chưa có lần test_run nào — truyền suite=<tên folder suite>");
+    }
+
     public string RunDir(string suite, string run)
     {
+        suite = ResolveSuite(suite);
         var runs = Path.Combine(_paths.Suite(suite), "runs");
         if (!Directory.Exists(runs)) throw new FlowException($"suite {suite} chưa có lần chạy nào");
         if (run.Length > 0)
@@ -35,6 +50,7 @@ public sealed class RunStore(ProjectContext ctx, RunnerConfig cfg, IProcRunner? 
 
     public string Detail(string suite, string run, string kind, string reference, int window)
     {
+        suite = ResolveSuite(suite);
         var dir = RunDir(suite, run);
         var data = Path.Combine(dir, "data");
         switch (kind)
@@ -76,8 +92,22 @@ public sealed class RunStore(ProjectContext ctx, RunnerConfig cfg, IProcRunner? 
                 return Read(Path.Combine(data, "diagnosis.json"))?.ToJsonString(JsonOut) ?? "chưa có diagnosis.json";
             case "steps":
             {
+                // kết quả tool của từng step (data\steps) + trạng thái step trên tracking
+                var sb = new StringBuilder();
+                var stepsDir = Path.Combine(data, "steps");
+                var files = Directory.Exists(stepsDir) ? Directory.EnumerateFiles(stepsDir).OrderBy(f => f, StringComparer.Ordinal).ToList() : new List<string>();
+                if (reference.Length > 0) files = files.Where(f => Path.GetFileName(f).Contains(reference, StringComparison.OrdinalIgnoreCase)).ToList();
+                foreach (var f in files)
+                {
+                    var lines = File.ReadAllLines(f);
+                    sb.AppendLine($"{Path.Combine(stepsDir, Path.GetFileName(f))} ({lines.Length} dòng)");
+                    foreach (var l in lines.Take(reference.Length > 0 ? Math.Max(window, 3) : 3)) sb.AppendLine("  " + Text.Clip(l, 200));
+                }
+                if (files.Count == 0) sb.AppendLine("không có data\\steps (runner cũ hoặc chưa chạy tới bước 5)");
                 var st = Read(Path.Combine(data, "step_status.json"));
-                return st is null ? "không có step_status.json" : string.Join('\n', (st["steps"] as JsonArray ?? new JsonArray()).Select(x => $"{x?["stepCode"]}: {x?["status"]}")) + (st["message"]?.ToString() is { Length: > 0 } m ? "\n" + m : "");
+                sb.Append(st is null ? "tracking: không có step_status.json"
+                    : "tracking: " + string.Join(", ", (st["steps"] as JsonArray ?? new JsonArray()).Select(x => $"{x?["stepCode"]} {x?["status"]}")) + (st["message"]?.ToString() is { Length: > 0 } m ? " · " + m : ""));
+                return sb.ToString();
             }
             case "summary":
             {
@@ -103,6 +133,7 @@ public sealed class RunStore(ProjectContext ctx, RunnerConfig cfg, IProcRunner? 
 
     public string RecordVerdict(string suite, string run, string ruleId, string sheet, string verdict, string note, string autonomy = "")
     {
+        suite = ResolveSuite(suite);
         verdict = verdict.Trim().ToUpperInvariant();
         if (verdict is not (Verdicts.Pass or Verdicts.Fail or Verdicts.Suspect or Verdicts.NotMeasurable))
             throw new FlowException("verdict: PASS | FAIL | SUSPECT | NOT_MEASURABLE");

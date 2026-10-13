@@ -115,7 +115,8 @@ Các lệnh còn lại chạy bằng model của phiên chính. Đổi: sửa `m
 
 ## Giới hạn hiện tại
 
-- Chưa chạy trên Revit thật: runner được kiểm bằng gateway / tracking / tiến trình giả (`src/Hawee.Flow.Tests`). Lần đầu nên chạy song song với `/revit-test` cũ trên một suite đã có kết quả để so `result.json` và kết luận.
+- Đã chạy thật lần đầu 2026-10-13 (mở Revit, bản sao model, 4 step preview). Phần còn lại vẫn kiểm bằng gateway / tracking / tiến trình giả (`src/Hawee.Flow.Tests`) — nên so với `/revit-test` cũ trên một suite đã có kết quả.
+- Suite chỉ gọi tool preview / đọc (không chạy pipeline) → `capture: none` trong `suite.yaml`: không đọc tracking / điểm kiểm, không đối chiếu log; luật chấm trên `data\steps\NN-<tool>.json` (runner lưu kết quả tool của mọi step).
 - Gateway và bim-tracking đang gọi qua MCP client (giao thức chuẩn). Có protocol pipe / HTTP API riêng thì thêm một `IToolClient`, phần còn lại không đổi.
 - Tên tham số `run_timeline` / `run_outputs` dùng như skill cũ (`externalRunId`, `StepCode`, `Page`); hình dạng kết quả đọc linh hoạt theo tên khoá. Khác → sửa `JsonScan`.
 - Chưa ghi run tracking cho **chính lần test** (`start_envelope_run` cần định danh dự án); run của add-in vẫn được đọc đầy đủ.

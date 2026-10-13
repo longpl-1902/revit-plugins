@@ -71,6 +71,7 @@ states:
       - Fail mới (không thuộc known_failures) -> sửa, tối đa 5 vòng (check_all đếm). Không nới test.
       - Lệch nhỏ -> plan §13; lệch lớn -> dừng, quay G2/G1.
       - Xong mọi bước -> /verify (task chạy trong Revit) hoặc /dod.
+      - Bước kiểm trong Revit (kể cả "chạy thử", "lệnh thật 2 lần") -> step trong suite + /revit-test; không gọi tool Revit trực tiếp, không nhờ người mở Revit.
     tools: [check_all, rule_for, rule_get, deviation_add]
     stop: Lệch lớn; hết 5 vòng.
     next: test
@@ -80,7 +81,7 @@ states:
     name: Test trong Revit, vòng tự sửa
     skill: /verify
     do:
-      - test_run từng suite (runner tự build + chạy Revit, đối chiếu, chấm, test-summary).
+      - test_run từng suite (runner tự build + mở/đóng Revit, đối chiếu, chấm, test-summary). Không có test_run -> báo /mcp, dừng.
       - FIX -> sửa đúng file:dòng chẩn đoán -> check_all -> test_run lượt sau. PASS/STOP_G3/STOP_LIMIT -> dừng.
       - Cần agent chấm -> get_detail kind=rule, xem ảnh, record_verdict. Chẩn đoán máy gợi ý -> diagnosis_set.
     tools: [check_all, test_run, get_detail, record_verdict, diagnosis_set, matrix_build, issue_note_draft, gate_submit]

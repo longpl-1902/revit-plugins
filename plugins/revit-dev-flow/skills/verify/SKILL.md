@@ -9,7 +9,8 @@ model: sonnet
 
 # /verify $ARGUMENTS
 
-Chạy trong subagent; cuối cùng trả về ≤ 8 dòng cho phiên chính. Không commit / push. Không sửa `rules.md`, `baseline\`, suite, dữ liệu, `known_failures`, ngưỡng.
+Chạy trong subagent; cuối cùng trả về ≤ 8 dòng cho phiên chính. Runner tự mở / đóng Revit — không nhờ người mở Revit;
+không có tool `test_run` = hawee-flow chưa nối → báo `/mcp`, dừng. Không commit / push. Không sửa `rules.md`, `baseline\`, suite, dữ liệu, `known_failures`, ngưỡng.
 
 Mỗi lượt n = 0, 1, …:
 1. `check_all` (quick) — chưa xanh → sửa lỗi do diff (≤ 5 vòng), không xanh được → dừng, báo.

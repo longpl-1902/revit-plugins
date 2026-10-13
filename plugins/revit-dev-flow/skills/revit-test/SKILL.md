@@ -10,6 +10,7 @@ model: sonnet
 # /revit-test $ARGUMENTS
 
 Mỗi suite (tuần tự; suite trước lỗi vẫn chạy suite sau): `test_run suite=<tên> purpose=<…>` (mặc định adhoc; `baseline` khi lấy baseline ở bước 4a).
+Revit phải đang đóng; không có tool `test_run` = hawee-flow chưa nối → báo người gõ `/mcp`, dừng (không nhờ người mở Revit / chạy tay).
 Runner tự làm bước 0–10 (môi trường, Revit, bản sao model, step có chặn tool cấm, tracking + điểm kiểm, đối chiếu log, chấm, evidence, dọn dẹp).
 
 Sau mỗi suite: luật "cần agent" (ảnh, cú pháp máy không đọc được, hoặc bộ chấm C# lệch `rule-eval.ps1` — dòng `rule-eval: lệch …`) → `get_detail kind=rule`, xem ảnh / dữ liệu, `record_verdict`. Không tự sửa code ở lệnh này (vòng sửa thuộc `/verify`).

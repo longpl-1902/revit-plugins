@@ -175,8 +175,8 @@ public sealed class TestDesign(ProjectContext ctx, IProcRunner? runner = null)
                     && Regex.IsMatch(Text.Fold(r.Grader), @"^\W*(bang|trong|giao|khop baseline)\s*\(") && !r.Grader.Contains('±')).Select(r => $"{n}/{r.Id}")
                 : Enumerable.Empty<string>()).ToList();
         if (noTol.Count == 0) return res;
-        var tol = ctx.TestBlock.Exists ? RunnerConfig.DefaultTol(ctx.TestBlock) : 0.01;
-        return res + $"\nWARN [rule-tol] {noTol.Count} luật so số thực không ghi '± x' → dùng sai số mặc định {tol.ToString(System.Globalization.CultureInfo.InvariantCulture)} mm: {string.Join(", ", noTol.Take(8))}{(noTol.Count > 8 ? " …" : "")}";
+        var tol = ctx.TestBlock.Exists ? RunnerConfig.DefaultTol(ctx.TestBlock) : 0;
+        return res + $"\nWARN [rule-tol] {noTol.Count} luật so số thực không ghi '± x' → so với sai số {tol.ToString(System.Globalization.CultureInfo.InvariantCulture)} mm (như rule-eval.ps1; feet → mm thường lệch 1e-8 → ghi ± vào Máy chấm): {string.Join(", ", noTol.Take(8))}{(noTol.Count > 8 ? " …" : "")}";
     }
 
     private string SuiteLintRun(IEnumerable<string> args)

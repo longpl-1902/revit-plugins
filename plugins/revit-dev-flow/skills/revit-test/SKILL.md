@@ -12,6 +12,6 @@ model: sonnet
 Mỗi suite (tuần tự; suite trước lỗi vẫn chạy suite sau): `test_run suite=<tên> purpose=<…>` (mặc định adhoc; `baseline` khi lấy baseline ở bước 4a).
 Runner tự làm bước 0–10 (môi trường, Revit, bản sao model, step có chặn tool cấm, tracking + điểm kiểm, đối chiếu log, chấm, evidence, dọn dẹp).
 
-Sau mỗi suite: luật "cần agent" → `get_detail kind=rule`, xem ảnh, `record_verdict`. Không tự sửa code ở lệnh này (vòng sửa thuộc `/verify`).
+Sau mỗi suite: luật "cần agent" (ảnh, cú pháp máy không đọc được, hoặc bộ chấm C# lệch `rule-eval.ps1` — dòng `rule-eval: lệch …`) → `get_detail kind=rule`, xem ảnh / dữ liệu, `record_verdict`. Không tự sửa code ở lệnh này (vòng sửa thuộc `/verify`).
 Trả lời: bảng suite · kết luận test-summary · số PASS / FAIL / cần người · đường dẫn report.md. Không dán dữ liệu thô.
 Chưa có baseline → nhắc người xem kết quả và chép `runs\<run>\data\*` sang `baseline\` nếu đúng.

@@ -36,5 +36,15 @@
 | `step xong(<mã step>)` | data\step_status.json |
 | `ảnh(<điều cần nhìn>)` | agent nhìn ảnh; tối đa SUSPECT trừ khi mô tả được cụ thể |
 
+**Viết để máy đọc được** (`rule-eval.ps1` của Base và bộ chấm của plugin cùng luật):
+- mỗi phép trong một cặp `` ` ``, nhiều phép nối bằng "và";
+- tham số là **đường dẫn dữ liệu hoặc giá trị**, không phải câu văn (`ViewName tờ 03/04/06 bắt đầu bằng` → máy ghi cần agent);
+- lọc trong `[...]`: `Trường=giá trị`, `Trường!=giá trị`, `Trường bắt đầu bằng "…"`, `Trường chứa "…"`, `Trường không chứa "…"`, cách nhau bằng dấu phẩy; so đúng hoa thường;
+- bỏ tên file → file của phép trước trong cùng dòng, không có thì file `.json` duy nhất trong `data\` có thuộc tính gốc trùng đoạn đầu;
+- `theo <khoá>`: khoá lấy ở chính phần tử hoặc cha gần nhất; nhóm không có phần tử nào vẫn tính (= 0);
+- so số thực (`bằng`, `trong`, `khớp baseline`) không ghi `± x` là so đúng tuyệt đối → ghi `± <sai số>` (feet → mm lệch ~1e-8).
+
+Còn `<…>`, ngưỡng `chờ`, thiếu file / baseline → cần agent / NOT_MEASURABLE, không bao giờ thành PASS.
+
 Quy ước: ID R-xx ổn định, không đánh số lại, không dùng lại; luật bỏ → `### R-xx — <tên> · retired <YYYY-MM-DD>` + `- **Bỏ vì:** …`.
 Đổi luật sau G2 = duyệt lại (hash suite khoá ở G2; test_run dừng nếu lệch).

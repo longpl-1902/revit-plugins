@@ -219,6 +219,58 @@ public class RunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task May_cham_Base_lech_thi_chuyen_agent()
+    {
+        using var repo = Repo();
+        Suite("  - { tool: import_csv, args: { config_path: '{dataset}\\cfg.json' } }");
+        FakeScripts(repo);
+        repo.Write("BIM_KB_Base/core/tools/rule-eval.ps1", "# giả");
+        var inner = repo.Runner.Handler!;
+        List<string>? seen = null;
+        var resultBefore = "";
+        repo.Runner.Handler = (file, args) =>
+        {
+            if (!args.Any(a => a.EndsWith("rule-eval.ps1"))) return inner(file, args);
+            seen = args;
+            var runDir = args.SkipWhile(a => a != "-RunDir").Skip(1).First();
+            resultBefore = File.ReadAllText(Path.Combine(runDir, "result.json"));   // chạy sau khi đã có result.json
+            Text.Write(Path.Combine(runDir, "data", "rule-eval.json"), """
+                { "tool": "rule-eval", "mode": "shadow", "mismatch": 1, "results": [
+                  { "id": "R-01", "verdict": "FAIL", "agent": "PASS", "match": "LECH", "clauses": [ { "verdict": "FAIL", "detail": "A-102=0" } ] },
+                  { "id": "R-02", "verdict": "PASS", "agent": "PASS", "match": "khop", "clauses": [] } ] }
+                """);
+            return new ProcResult(1, "", false);
+        };
+        var (runner, _, _) = Make(repo);
+        var r = await runner.Run(new RunRequest("1-main"));
+
+        Assert.Contains("rule-eval: lệch 1 (R-01) → chuyển agent chấm", r);
+        Assert.Contains("Cần agent chấm: R-01, R-03", r);
+        Assert.Contains("\"PASS\"", resultBefore);
+        var run = LatestRun();
+        Assert.Equal(Path.Combine(Suites, "1-main", "rules.md"), seen!.SkipWhile(a => a != "-Rules").Skip(1).First());
+        var r01 = JsonNode.Parse(File.ReadAllText(Path.Combine(run, "result.json")))!.AsArray()
+            .SelectMany(x => x!["rules"]!.AsArray()).Where(x => x!["id"]!.ToString() == "R-01").ToList();
+        Assert.NotEmpty(r01);
+        Assert.All(r01, x => { Assert.Equal("SUSPECT", x!["verdict"]!.ToString()); Assert.True(x["pending_agent"]!.GetValue<bool>()); });
+        var cc = JsonNode.Parse(File.ReadAllText(Path.Combine(run, "run-info.json")))!["grading"]!["cross_check"]!;
+        Assert.Equal(1, cc["mismatch"]!.GetValue<int>());
+        Assert.Contains("Máy chấm lệch R-01", File.ReadAllText(Path.Combine(run, "report.md")));
+    }
+
+    [Fact]
+    public async Task Khong_co_rule_eval_thi_ghi_chu_khong_loi()
+    {
+        using var repo = Repo();
+        Suite("  - { tool: import_csv, args: { config_path: '{dataset}\\cfg.json' } }");
+        FakeScripts(repo);
+        var (runner, _, _) = Make(repo);
+        var r = await runner.Run(new RunRequest("1-main"));
+        Assert.Contains("rule-eval: chưa chạy máy chấm", r);
+        Assert.Contains("2 PASS", r);
+    }
+
+    [Fact]
     public async Task Tool_cam_bi_chan_tai_runner()
     {
         using var repo = Repo();

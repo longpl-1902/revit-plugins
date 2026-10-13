@@ -31,8 +31,8 @@ public sealed class RunnerConfig
     public string BuildCommand { get; init; } = "";
     public string AddinDll { get; init; } = "";
     public bool RequireSigned { get; init; }
-    /// <summary>Sai số mặc định (mm) cho bằng / trong / giao / khớp baseline khi luật không ghi "± x". đếm luôn so đúng.</summary>
-    public double DefaultTolMm { get; init; } = 0.01;
+    /// <summary>Sai số (mm) cho bằng / trong / khớp baseline khi luật không ghi "± x" (revit_test.default_tol_mm). Mặc định 0 như rule-eval.ps1; đếm, giao luôn so đúng.</summary>
+    public double DefaultTolMm { get; init; } = 0;
 
     public int MaxFixes => MaxRuns > 0 ? MaxRuns - 1 : 3;
 
@@ -80,7 +80,7 @@ public sealed class RunnerConfig
     }
 
     public static double DefaultTol(Y block) =>
-        double.TryParse(block["default_tol_mm"].S(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var tol) && tol >= 0 ? tol : 0.01;
+        double.TryParse(block["default_tol_mm"].S(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var tol) && tol >= 0 ? tol : 0;
 
     public string LogFile => DiagnoseLog.Length > 0 ? DiagnoseLog : RunIdLog;
 }

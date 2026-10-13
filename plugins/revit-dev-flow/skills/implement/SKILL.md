@@ -19,3 +19,9 @@ Với mỗi bước ở plan §6 (theo thứ tự, không nhảy bước):
 
 Lệch plan → `deviation_add` (nhỏ: đi tiếp; lớn: tool đặt lại state, **DỪNG**). Hook chặn `protected_paths` — bị chặn thì báo người, không tìm đường vòng.
 Code xong mọi bước mới chạy Revit: task đụng Revit → `/verify`; không → `/dod`.
+
+**Kiểm trong Revit chỉ qua suite + `test_run`** — runner tự mở Revit, mở bản sao model, chạy step, chấm, đóng Revit.
+Bước plan ghi "chạy thử trong Revit" / "gọi lệnh thật 2 lần" → **không** tự gọi tool Revit, **không** bảo người mở Revit:
+thêm step vào suite của task (chưa có → `suite_scaffold` + `dataset_register` cho model; step preview rồi lệnh thật ×2,
+luật `tương đối: chạy lại không tạo trùng`) rồi `/revit-test <suite>` (giữa chừng) hoặc `/verify`. Không thấy tool `test_run` →
+hawee-flow chưa nối: báo người gõ `/mcp` (kèm dòng lỗi hook nếu có) và DỪNG. Chỉ nhờ người khi `manual_steps` cần mắt / thao tác UI.

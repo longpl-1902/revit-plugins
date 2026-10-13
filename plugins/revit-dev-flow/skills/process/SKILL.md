@@ -18,6 +18,9 @@ Ba luật nền:
 - Tới cổng thì **dừng**, trình bằng chứng. Không tự ghi cổng (`gate_record` chỉ khi người đã nói rõ quyết định; hook hỏi lại).
 - Không tự phát minh business rule (P-001): thiếu căn cứ → `UNKNOWN – NEED HUMAN DECISION: <câu hỏi> – người quyết định: <vai>` và dừng.
 
+Kiểm trong Revit **chỉ** qua suite + `test_run` (`/revit-test`, `/verify`): runner tự mở Revit và bản sao model. Không gọi tool
+Revit trực tiếp, không nhờ người mở Revit; thiếu tool hawee-flow → báo `/mcp` và dừng.
+
 Không commit / push khi chủ task chưa nói rõ cho lần này (G4). Không sửa `protected_paths`. Không nới test hay thêm
 `known_failures` để qua vòng. Mọi khẳng định hiện trạng có `file:dòng` hoặc lệnh đã chạy.
 Kết quả tool là bản tóm tắt; cần chi tiết thì gọi lại với tham số chi tiết thay vì mở file lớn.

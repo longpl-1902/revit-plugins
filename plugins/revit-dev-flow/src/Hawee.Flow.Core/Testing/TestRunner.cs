@@ -303,6 +303,7 @@ public sealed class TestRunner(
             }
             var t0 = DateTime.Now;
             var r = await CallInRevit(gw, s, step.Tool, args, TimeSpan.FromMinutes(s.Suite.StepMin));
+            SaveStep(s, step, r);
             Log(s, $"step {step.Index} {step.Tool} {Suite.Compact(args)} → {(r.Ok ? "OK" : "LỖI")} {(DateTime.Now - t0).TotalSeconds:0} s {Text.Clip(r.Text.Replace('\n', ' '), 300)}");
             if (!r.Ok)
             {
@@ -311,6 +312,17 @@ public sealed class TestRunner(
             }
         }
         s.StepsEnd = DateTime.Now;
+    }
+
+    /// <summary>Kết quả tool của từng step → data\steps\NN-&lt;tool&gt;.json (JSON của tool; không parse được thì { ok, text }) để luật chấm và agent xem.</summary>
+    internal static string StepFile(SuiteStep step) => $"{step.Index:00}-{Regex.Replace(step.Tool, @"[^\w.-]", "_")}.json";
+
+    private static void SaveStep(RunState s, SuiteStep step, ToolCall r)
+    {
+        var dir = Path.Combine(s.Data, "steps");
+        Directory.CreateDirectory(dir);
+        var node = r.Ok && r.Json is not null ? r.Json.DeepClone() : new JsonObject { ["ok"] = r.Ok, ["text"] = r.Text, ["json"] = r.Json?.DeepClone() };
+        File.WriteAllText(Path.Combine(dir, StepFile(step)), node.ToJsonString(JsonOut));
     }
 
     // ---- bước 6 ------------------------------------------------------------------------------------------
@@ -327,6 +339,19 @@ public sealed class TestRunner(
             File.WriteAllText(addinLog, await rd.ReadToEndAsync(ct));
         }
         else s.Notes.Add(File.Exists(cfg.LogFile) ? "không cắt được log (chưa tới bước chạy kịch bản)" : $"không thấy log add-in {cfg.LogFile}");
+
+        if (s.Suite.NoCapture)
+        {
+            File.WriteAllText(Path.Combine(s.Data, "step_status.json"), new JsonObject
+            {
+                ["externalRunId"] = "", ["source"] = "capture: none", ["ok"] = false,
+                ["message"] = "suite khai capture: none — không đọc tracking / điểm kiểm", ["steps"] = new JsonArray(),
+            }.ToJsonString(JsonOut));
+            s.Info["externalRunId"] = "";
+            s.DataSource = "data\\steps";
+            s.Notes.Add("Suite khai capture: none — không đọc tracking / điểm kiểm, không đối chiếu log; luật chấm trên data\\steps\\NN-<tool>.json.");
+            return;
+        }
 
         if (cfg.RunIdPattern.Length > 0 && File.Exists(addinLog))
         {
@@ -479,6 +504,7 @@ public sealed class TestRunner(
 
     private void Reconcile(RunState s)
     {
+        if (s.Suite.NoCapture) return;   // không có tracking / điểm kiểm để đối chiếu (ghi chú ở bước 6)
         var script = ctx.BaseTool("host-test-reconcile.ps1");
         if (!File.Exists(script)) { s.Notes.Add("không có host-test-reconcile.ps1"); return; }
         var r = Ps.RunFile(proc, script, new[] { "-RunDir", s.RunDir, "-Suite", Path.Combine(s.Suite.Dir, "suite.yaml"), "-Config", Path.Combine(ctx.Root, ProjectContext.ConfigFile), "-Block", ctx.TestBlockName }, ctx.Root, TimeSpan.FromMinutes(5));
@@ -714,8 +740,16 @@ public sealed class TestRunner(
         md.AppendLine("| Sheet | Verdict | Luật | Kỳ vọng | Thực tế | Bằng chứng |").AppendLine("|---|---|---|---|---|---|");
         foreach (var g in graded.Where(g => g.Verdict != Verdicts.Pass))
             md.AppendLine($"| {g.Group} | {(g.Verdict == Verdicts.Agent ? "CẦN AGENT" : g.Verdict)} | {g.Rule.Id} {Text.Cell(g.Rule.Name)} | {Text.Cell(Text.Clip(g.Expected, 80))} | {Text.Cell(Text.Clip(g.Actual, 80))} | {Text.Cell(Text.Clip(g.Evidence.Length > 0 ? g.Evidence : g.Reason, 160))} |");
+        var stepsDir = Path.Combine(s.Data, "steps");
+        if (Directory.Exists(stepsDir))
+        {
+            md.AppendLine().AppendLine("## Kết quả step (data\\steps)");
+            md.AppendLine("| File | Nội dung (đầu) |").AppendLine("|---|---|");
+            foreach (var f in Directory.EnumerateFiles(stepsDir).OrderBy(f => f, StringComparer.Ordinal))
+                md.AppendLine($"| steps\\{Path.GetFileName(f)} | {Text.Cell(Text.Clip(Regex.Replace(File.ReadAllText(f), @"\s+", " "), 200))} |");
+        }
         md.AppendLine().AppendLine("## Đối chiếu log ↔ tracking");
-        md.AppendLine(rec is null ? "Không có reconcile.json." : $"Kết quả: {rec["result"]} · phát hiện: {string.Join(", ", (rec["findings"] as JsonArray ?? new JsonArray()).Select(f => f?["code"]?.ToString()))} — chi tiết reconcile.md");
+        md.AppendLine(rec is null ? (s.Suite.NoCapture ? "Bỏ qua — suite khai capture: none." : "Không có reconcile.json.") : $"Kết quả: {rec["result"]} · phát hiện: {string.Join(", ", (rec["findings"] as JsonArray ?? new JsonArray()).Select(f => f?["code"]?.ToString()))} — chi tiết reconcile.md");
         if (File.Exists(Path.Combine(s.Data, "diagnosis.json")))
         {
             var d = ReadJson(Path.Combine(s.Data, "diagnosis.json"));
@@ -821,7 +855,7 @@ public sealed class TestRunner(
                 ? $"rule-eval: lệch {cc["mismatch"]}{(cc["ids"] is JsonArray ids && ids.Count > 0 ? " (" + string.Join(", ", ids) + ") → chuyển agent chấm" : "")}"
                 : $"rule-eval: {cc["status"]}");
         var agent = graded.Where(g => g.Verdict == Verdicts.Agent).ToList();
-        if (agent.Count > 0) sb.AppendLine($"Cần agent chấm: {string.Join(", ", agent.Select(a => a.Rule.Id).Distinct())} → get_detail kind=rule, xem ảnh, rồi record_verdict");
+        if (agent.Count > 0) sb.AppendLine($"Cần agent chấm: {string.Join(", ", agent.Select(a => a.Rule.Id).Distinct())} → get_detail suite={s.Suite.Name} kind=rule ref=<R-xx> (kết quả step: kind=steps), xem ảnh / dữ liệu, rồi record_verdict suite={s.Suite.Name}");
         if (File.Exists(Path.Combine(s.Data, "diagnosis.json")))
         {
             var d = ReadJson(Path.Combine(s.Data, "diagnosis.json"));

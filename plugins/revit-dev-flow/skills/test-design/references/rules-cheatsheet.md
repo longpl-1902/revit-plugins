@@ -36,6 +36,10 @@
 | `step xong(<mã step>)` | data\step_status.json |
 | `ảnh(<điều cần nhìn>)` | agent nhìn ảnh; tối đa SUSPECT trừ khi mô tả được cụ thể |
 
+**Nguồn dữ liệu** (trong `RUN_DIR\data`): `steps\NN-<tool>.json` = kết quả tool của step thứ NN (runner luôn lưu, kể cả step lỗi:
+`{ ok, text }`) — dùng cho tool trả kết quả trực tiếp (preview, đọc); `checkpoints\<STEP>\…` = output pipeline tải từ tracking;
+`addin.log`; `step_status.json`. Tên trường: xem `get_detail kind=steps` sau lần chạy đầu.
+
 **Viết để máy đọc được** (`rule-eval.ps1` của Base và bộ chấm của plugin cùng luật):
 - mỗi phép trong một cặp `` ` ``, nhiều phép nối bằng "và";
 - tham số là **đường dẫn dữ liệu hoặc giá trị**, không phải câu văn (`ViewName tờ 03/04/06 bắt đầu bằng` → máy ghi cần agent);

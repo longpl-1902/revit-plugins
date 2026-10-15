@@ -341,3 +341,39 @@ public class TextTests
     [Fact]
     public void Fold_bo_dau() => Assert.Equal("bo qua dong", Text.Fold("Bỏ qua Đồng"));
 }
+
+/// <summary>Phạm vi plugin: chỉ repo add-in Revit (hawee.project.yaml có profiles chứa revit-addin).</summary>
+public class ScopeTests
+{
+    [Fact]
+    public void Repo_Revit_mo_duoc()
+    {
+        using var repo = new TestRepo();
+        Assert.Contains(ProjectContext.RevitProfile, repo.Ctx().Profiles);
+    }
+
+    [Theory]
+    [InlineData("profiles: [revit-addin]", "profiles: [autocad-addin]")]
+    [InlineData("profiles: [revit-addin]", "profiles: []")]
+    [InlineData("profiles: [revit-addin]\n", "\n")]
+    public void Repo_khong_phai_Revit_bi_tu_choi(string from, string to)
+    {
+        using var repo = new TestRepo();
+        repo.Write("hawee.project.yaml", repo.Read("hawee.project.yaml").Replace(from, to));
+        var ex = Assert.Throws<FlowException>(() => repo.Ctx());
+        Assert.Contains("không phải dự án add-in Revit", ex.Message);
+        Assert.Contains("chỉ dùng khi phát triển add-in", ex.Message);
+    }
+
+    [Fact]
+    public void Khong_co_hawee_project_yaml_bi_tu_choi()
+    {
+        var dir = Directory.CreateTempSubdirectory("noscope").FullName;
+        try
+        {
+            var ex = Assert.Throws<FlowException>(() => ProjectContext.Open(dir));
+            Assert.Contains("không phải repo add-in Revit", ex.Message);
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+}

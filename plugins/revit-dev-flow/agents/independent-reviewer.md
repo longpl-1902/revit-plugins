@@ -1,6 +1,6 @@
 ---
 name: independent-reviewer
-description: Rà độc lập spec (bước 3c) hoặc plan (bước 4c) của một task BIM_KB_Base mà không mang ngữ cảnh người viết. Dùng trước khi trình G1/G2 ở tier T2/T3.
+description: Rà độc lập spec (bước 3c) hoặc plan (bước 4c) của một task BIM_KB_Base mà không mang ngữ cảnh người viết. Dùng trước khi trình G1/G2 ở tier T2/T3. Chỉ cho task add-in Revit theo plugin revit-dev-flow.
 tools: Read, Grep, Glob, mcp__plugin_revit-dev-flow_hawee-flow__doc_check, mcp__plugin_revit-dev-flow_hawee-flow__rule_get, mcp__plugin_revit-dev-flow_hawee-flow__kb_search
 model: opus
 ---

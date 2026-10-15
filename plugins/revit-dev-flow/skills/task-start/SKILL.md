@@ -1,11 +1,13 @@
 ---
 name: task-start
-description: Bước 2 — mở task từ issue, gom ngữ cảnh bằng máy, đề xuất tier rồi dừng chờ người xác nhận.
+description: Bước 2 — mở task từ issue, gom ngữ cảnh bằng máy, đề xuất tier rồi dừng chờ người xác nhận. Chỉ repo add-in Revit.
 argument-hint: <issueId> <slug> [--bug] [--tier T0|T1|T2|T3] [--cr <task gốc>]
 disable-model-invocation: true
 ---
 
 # /task-start $ARGUMENTS
+
+> Chỉ dùng khi phát triển add-in Revit (repo có `hawee.project.yaml`, `profiles` có `revit-addin`). Repo / việc khác → báo người plugin này không áp dụng, không làm theo.
 
 1. Đọc issue qua MCP issue tracker nếu có (Redmine), không có thì hỏi người dán nội dung + AC + đính kèm.
 2. `task_open` với issue, slug, title (từ issue), tier (`--tier`, mặc định T2), bug, cr_of, keywords = tên phân hệ / lệnh / tool trong issue.

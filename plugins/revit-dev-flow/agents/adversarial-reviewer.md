@@ -1,6 +1,6 @@
 ---
 name: adversarial-reviewer
-description: Review đối kháng diff của một task trước G5 từ gói review-packet (không mang ngữ cảnh người viết). Chỉ đọc, không sửa code.
+description: Review đối kháng diff của một task trước G5 từ gói review-packet (không mang ngữ cảnh người viết). Chỉ đọc, không sửa code. Chỉ cho task add-in Revit theo plugin revit-dev-flow.
 tools: Read, Grep, Glob, mcp__plugin_revit-dev-flow_hawee-flow__rule_get
 model: opus
 ---

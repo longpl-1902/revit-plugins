@@ -1,11 +1,13 @@
 ---
 name: handoff
-description: Bước 10 — đóng task: handoff có bằng chứng, known-issue, case vào suite, bài học lên KB.
+description: Bước 10 — đóng task: handoff có bằng chứng, known-issue, case vào suite, bài học lên KB. Chỉ repo add-in Revit.
 argument-hint: "[task]"
 disable-model-invocation: true
 ---
 
 # /handoff $ARGUMENTS
+
+> Chỉ dùng khi phát triển add-in Revit (repo có `hawee.project.yaml`, `profiles` có `revit-addin`). Repo / việc khác → báo người plugin này không áp dụng, không làm theo.
 
 1. `handoff_draft` → điền các ô `<…>`: §2 việc + file + bằng chứng (commit / lệnh + kết quả), §3 không làm tròn ("chưa kiểm trên Revit" nếu chưa),
    §4 câu mở có người quyết + hạn, **phát hiện tốn công**, **cố ý chưa làm**; §5 3–5 bước, lệnh đầu tiên; §6 bản đồ code `<file> <hash cũ> → <hash mới>`.

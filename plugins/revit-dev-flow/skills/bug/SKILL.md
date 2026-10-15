@@ -1,11 +1,13 @@
 ---
 name: bug
-description: Luồng bug B1–B9 — bằng chứng, phân loại, spec ba khối, test tái hiện FAIL trước khi sửa; cùng các cổng như task.
+description: Luồng bug B1–B9 — bằng chứng, phân loại, spec ba khối, test tái hiện FAIL trước khi sửa; cùng các cổng như task. Chỉ repo add-in Revit.
 argument-hint: "<issueId> [slug] | hotfix"
 disable-model-invocation: true
 ---
 
 # /bug $ARGUMENTS
+
+> Chỉ dùng khi phát triển add-in Revit (repo có `hawee.project.yaml`, `profiles` có `revit-addin`). Repo / việc khác → báo người plugin này không áp dụng, không làm theo.
 
 Chưa có folder: `task_open bug=true tier=T1` (bugfix-spec dựng sẵn). Gọi `flow_next brief=true` đầu mỗi phiên.
 

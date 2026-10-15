@@ -1,11 +1,13 @@
 ---
 name: review
-description: Bước 9 — review đối kháng diff trước G5 bằng agent phiên riêng; ghi review-<ngày>.md.
+description: Bước 9 — review đối kháng diff trước G5 bằng agent phiên riêng; ghi review-<ngày>.md. Chỉ repo add-in Revit.
 argument-hint: "[task] [base_ref]"
 disable-model-invocation: true
 ---
 
 # /review $ARGUMENTS
+
+> Chỉ dùng khi phát triển add-in Revit (repo có `hawee.project.yaml`, `profiles` có `revit-addin`). Repo / việc khác → báo người plugin này không áp dụng, không làm theo.
 
 1. `review_packet` (diff so nhánh tích hợp + checklist G5 + AC + plan §5/§5.6/§7/§13).
 2. Giao agent `adversarial-reviewer` với đúng đường dẫn gói đó (không kèm ngữ cảnh phiên này).

@@ -1,10 +1,12 @@
 ---
 name: test-design
-description: Bước 3d — sinh suite.yaml + rules.md từ AC của spec đã qua G1 và bộ dữ liệu; bảng luật duyệt ở G2.
+description: Bước 3d — sinh suite.yaml + rules.md từ AC của spec đã qua G1 và bộ dữ liệu; bảng luật duyệt ở G2. Chỉ repo add-in Revit.
 argument-hint: "[task] [--from <đường dẫn dữ liệu> | --dataset <bộ>]"
 ---
 
 # /test-design $ARGUMENTS
+
+> Chỉ dùng khi phát triển add-in Revit (repo có `hawee.project.yaml`, `profiles` có `revit-addin`). Repo / việc khác → báo người plugin này không áp dụng, không làm theo.
 
 Chạy sau G1, trước 4a, khi spec §5 có AC "Đo bằng" suite / trong Revit (`flow_next` báo; `/plan` tự gọi; thiếu suite thì `gate_submit G2` chặn).
 Máy làm phần cơ học, agent viết luật. Định dạng luật + cú pháp Máy chấm: [references/rules-cheatsheet.md](references/rules-cheatsheet.md).

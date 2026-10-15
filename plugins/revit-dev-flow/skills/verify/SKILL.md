@@ -1,6 +1,6 @@
 ---
 name: verify
-description: Bước 6–7 — check_all, chạy suite trong Revit bằng runner, vòng tự sửa theo test-summary (FIX / PASS / STOP_G3 / STOP_LIMIT), gửi issue khi mọi tiêu chí PASS; dừng ở G3.
+description: Bước 6–7 — check_all, chạy suite trong Revit bằng runner, vòng tự sửa theo test-summary (FIX / PASS / STOP_G3 / STOP_LIMIT), gửi issue khi mọi tiêu chí PASS; dừng ở G3. Chỉ repo add-in Revit.
 argument-hint: "[task] [--autonomy ask|night]"
 disable-model-invocation: true
 context: fork
@@ -8,6 +8,8 @@ model: sonnet
 ---
 
 # /verify $ARGUMENTS
+
+> Chỉ dùng khi phát triển add-in Revit (repo có `hawee.project.yaml`, `profiles` có `revit-addin`). Repo / việc khác → báo người plugin này không áp dụng, không làm theo.
 
 Chạy trong subagent; cuối cùng trả về ≤ 8 dòng cho phiên chính. Runner tự mở / đóng Revit — không nhờ người mở Revit;
 không có tool `test_run` = hawee-flow chưa nối → báo `/mcp`, dừng. Không commit / push. Không sửa `rules.md`, `baseline\`, suite, dữ liệu, `known_failures`, ngưỡng.

@@ -7,6 +7,19 @@ nội dung spec/plan/luật, hỏi người, sửa code, nhìn ảnh).
 
 Ước lượng nạp ngữ cảnh giảm 78–95% mỗi bước so với bộ skill cũ — chi tiết và cách đo thật: [docs/measurements.md](docs/measurements.md).
 
+## Phạm vi — chỉ khi phát triển add-in Revit
+
+Plugin (skill, agent, tool `hawee-flow`, hook) **chỉ** dùng khi phát triển add-in (plugin) **Revit**. Plugin cài ở cấp user nên
+có mặt ở mọi repo; cùng một định nghĩa phạm vi cho AI và máy:
+
+| | Repo add-in Revit | Repo khác |
+|---|---|---|
+| Nhận biết | từ thư mục dự án đi lên có `hawee.project.yaml`, `profiles` chứa `revit-addin` | không có file đó, hoặc `profiles` khác (vd. `autocad-addin`) |
+| Skill `process` / agent | áp quy trình bước 1–10, cổng G1–G6 | không áp — làm việc bình thường; lệnh `/spec`, `/plan`… → báo không áp dụng |
+| Tool `hawee-flow` | chạy | từ chối: "không phải dự án add-in Revit" |
+| Hook `plugin-guard` (commit / push) | hỏi người (G4), chặn force-push | không can thiệp |
+| Hook SessionStart (dựng server) | dựng khi mã nguồn đổi | bỏ qua (chạy tay `ensure-server.ps1` vẫn dựng) |
+
 ## Cài đặt
 
 Yêu cầu: Windows, Claude Code, **.NET 8 SDK** (`dotnet`), Windows PowerShell 5.1; repo dự án có `hawee.project.yaml`
@@ -99,8 +112,8 @@ luật hai máy chấm ngược nhau (PASS ↔ FAIL) → chuyển **cần agent*
 
 | Hook | Sự kiện | Làm gì |
 |---|---|---|
-| `plugin-guard.ps1` | PreToolUse `gate_record`, Bash, PowerShell | ghi cổng → **hỏi người**; `git commit` / `git push` → **hỏi người** (G4); force-push, `--no-verify` → chặn. Lỗi hook → chặn |
-| `ensure-server.ps1` | SessionStart | dựng server khi cần, im lặng khi không có gì làm |
+| `plugin-guard.ps1` | PreToolUse `gate_record`, Bash, PowerShell | chỉ repo add-in Revit (`scripts/revit-scope.ps1`): ghi cổng → **hỏi người**; `git commit` / `git push` → **hỏi người** (G4); force-push, `--no-verify` → chặn. Lỗi hook → chặn |
+| `ensure-server.ps1` | SessionStart | dựng server khi cần (repo ngoài phạm vi → bỏ qua), im lặng khi không có gì làm |
 | `post-edit-compact.ps1` | PostToolUse Edit/Write | chỉ khi `HAWEE_FLOW_POST_EDIT=1`: cùng lint với `post-edit-check.ps1` của Base nhưng ≤ 8 dòng — bật thì **bỏ** hook gốc trong `.claude/settings.json` |
 
 Hook `guard-protected-paths` / `post-edit-check` của dự án vẫn để ở `.claude/settings.json` như cũ (plugin không lặp).

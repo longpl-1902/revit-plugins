@@ -1,6 +1,6 @@
 ---
 name: revit-test
-description: Chạy một hoặc nhiều suite test Revit bằng runner hawee-flow (không vòng sửa); trả kết quả gọn.
+description: Chạy một hoặc nhiều suite test Revit bằng runner hawee-flow (không vòng sửa); trả kết quả gọn. Chỉ repo add-in Revit.
 argument-hint: "<suite> [<suite> …] [--purpose task|baseline|adhoc]"
 disable-model-invocation: true
 context: fork
@@ -8,6 +8,8 @@ model: sonnet
 ---
 
 # /revit-test $ARGUMENTS
+
+> Chỉ dùng khi phát triển add-in Revit (repo có `hawee.project.yaml`, `profiles` có `revit-addin`). Repo / việc khác → báo người plugin này không áp dụng, không làm theo.
 
 Mỗi suite (tuần tự; suite trước lỗi vẫn chạy suite sau): `test_run suite=<tên> purpose=<…>` (mặc định adhoc; `baseline` khi lấy baseline ở bước 4a).
 Revit phải đang đóng; không có tool `test_run` = hawee-flow chưa nối → báo người gõ `/mcp`, dừng (không nhờ người mở Revit / chạy tay).

@@ -1,6 +1,7 @@
 # flow.yaml — luồng BIM_KB_Base 0.8 dạng dữ liệu (thay cho việc đọc steps.md / gates.md / tiers.md / spec-plan.md).
 # Mỗi state của status.yaml -> bước đang làm, việc phải làm (ngắn), tool, điểm dừng.
 # Nguồn: core/process/steps.md, gates.md, tiers.md, spec-plan.md (BIM_KB_Base 0.8). Đổi quy trình: sửa file này + chạy test.
+# Phạm vi: chỉ repo add-in Revit (hawee.project.yaml có profiles chứa revit-addin) — ProjectContext.Open từ chối repo khác.
 
 states:
   context:

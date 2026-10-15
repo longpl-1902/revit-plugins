@@ -6,7 +6,7 @@
     {
       "name": "revit-dev-flow",
       "source": "./plugins/revit-dev-flow",
-      "description": "Luồng bước 1–10 / cổng G1–G6 của BIM_KB_Base với ít token: MCP server hawee-flow (C#), skill mỏng, hook cổng."
+      "description": "Chỉ cho repo add-in Revit. Luồng bước 1–10 / cổng G1–G6 của BIM_KB_Base với ít token: MCP server hawee-flow (C#), skill mỏng, hook cổng."
     }
   ]
 }

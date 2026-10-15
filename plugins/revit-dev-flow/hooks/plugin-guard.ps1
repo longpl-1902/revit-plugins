@@ -2,6 +2,8 @@
 #   gate_record (hawee-flow)        -> "ask": chi nguoi duyet ghi quyet dinh cong G1-G6
 #   git commit / git push (Bash, PowerShell) -> "ask": G4 - chu task cho phep cho LAN NAY
 #   git push --force / --no-verify  -> "deny"
+# Pham vi: plugin chi dung khi phat trien add-in Revit. Lenh git chi bi giu khi cwd (JSON hook) hoac CLAUDE_PROJECT_DIR
+# nam trong repo add-in Revit = tim thay hawee.project.yaml di len co profiles chua revit-addin. Repo khac -> khong can thiep.
 # Loi bat ngo -> chan (exit 2), khong de loi goi di qua.
 $ErrorActionPreference = 'Stop'
 trap { [Console]::Error.WriteLine("[revit-dev-flow] chan: loi trong hook - $($_.Exception.Message)"); exit 2 }
@@ -11,6 +13,8 @@ function Decide([string]$decision, [string]$reason) {
     [Console]::Out.Write(($o | ConvertTo-Json -Compress -Depth 4))
     exit 0
 }
+
+. (Join-Path (Split-Path -Parent $PSScriptRoot) 'scripts/revit-scope.ps1')
 
 $raw = [Console]::In.ReadToEnd()
 if (-not $raw) { exit 0 }
@@ -24,6 +28,8 @@ if ($tool -match 'hawee-flow__gate_record$') {
 }
 
 if ($tool -eq 'Bash' -or $tool -eq 'PowerShell') {
+    $cwd = if ($hook.PSObject.Properties['cwd']) { [string]$hook.cwd } else { '' }
+    if (-not ((Test-RevitRepo $cwd) -or (Test-RevitRepo $env:CLAUDE_PROJECT_DIR))) { exit 0 }
     $cmd = [string]$ti.command
     # git / git.exe / "C:\...\git.exe" / cmd /c "git ...", kem tuy chon toan cuc (-C dir, -c k=v)
     if ($cmd -match '(^|[;&|(\s"''`\\/])git(\.exe)?["'']?(\s+-[^\s]+(\s+[^\s-][^\s]*)?)*\s+(commit|push)\b') {

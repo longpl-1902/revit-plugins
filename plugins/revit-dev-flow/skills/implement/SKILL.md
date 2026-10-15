@@ -1,11 +1,13 @@
 ---
 name: implement
-description: Bước 5–6 — code theo từng bước plan, test viết trước, check_all sau mỗi bước, tối đa 5 vòng sửa.
+description: Bước 5–6 — code theo từng bước plan, test viết trước, check_all sau mỗi bước, tối đa 5 vòng sửa. Chỉ repo add-in Revit.
 argument-hint: "[task] [bước n]"
 disable-model-invocation: true
 ---
 
 # /implement $ARGUMENTS
+
+> Chỉ dùng khi phát triển add-in Revit (repo có `hawee.project.yaml`, `profiles` có `revit-addin`). Repo / việc khác → báo người plugin này không áp dụng, không làm theo.
 
 Điều kiện: G2 PASS (`flow_next brief=true` báo state code). Nhánh `<user>_<issueId>-<slug>` từ nhánh tích hợp (chưa có thì tạo; không commit).
 

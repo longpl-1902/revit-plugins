@@ -1,9 +1,14 @@
 namespace Hawee.Flow.Core.Infra;
 
-/// <summary>Repo dự án: gốc repo (có hawee.project.yaml), cấu hình, thư mục BIM_KB_Base, thư mục task.</summary>
+/// <summary>
+/// Repo dự án: gốc repo (có hawee.project.yaml), cấu hình, thư mục BIM_KB_Base, thư mục task.
+/// Phạm vi plugin: chỉ repo add-in Revit — hawee.project.yaml có <c>profiles</c> chứa <c>revit-addin</c>; repo khác → FlowException.
+/// </summary>
 public sealed class ProjectContext
 {
     public const string ConfigFile = "hawee.project.yaml";
+    public const string RevitProfile = "revit-addin";
+    private const string OutOfScope = "plugin revit-dev-flow chỉ dùng khi phát triển add-in (plugin) Revit; repo này làm việc bình thường, không theo quy trình BIM_KB_Base và không gọi tool hawee-flow.";
 
     public string Root { get; }
     public Y Config { get; }
@@ -25,8 +30,11 @@ public sealed class ProjectContext
         if (string.IsNullOrWhiteSpace(start)) start = Directory.GetCurrentDirectory();
         var dir = new DirectoryInfo(Path.GetFullPath(start));
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, ConfigFile))) dir = dir.Parent;
-        if (dir is null) throw new FlowException($"Không thấy {ConfigFile} từ {start} đi lên — mở Claude Code ở repo dự án.");
-        return new ProjectContext(dir.FullName, clock ?? SystemClock.Instance);
+        if (dir is null) throw new FlowException($"Không thấy {ConfigFile} từ {start} đi lên — không phải repo add-in Revit (hoặc chưa mở Claude Code ở repo dự án). {OutOfScope}");
+        var ctx = new ProjectContext(dir.FullName, clock ?? SystemClock.Instance);
+        if (!ctx.Profiles.Contains(RevitProfile))
+            throw new FlowException($"Repo {dir.FullName} không phải dự án add-in Revit (profiles: [{string.Join(", ", ctx.Profiles)}], cần có {RevitProfile}). {OutOfScope}");
+        return ctx;
     }
 
     public string TasksDir => Full(Config.At("paths.tasks").S("docs/tasks"));
@@ -40,8 +48,8 @@ public sealed class ProjectContext
     public string Full(string relOrAbs) => Path.GetFullPath(Path.IsPathRooted(relOrAbs) ? relOrAbs : Path.Combine(Root, relOrAbs));
     public string Rel(string full) => Path.GetRelativePath(Root, full).Replace('\\', '/');
 
-    /// <summary>Khối test của profile (revit-addin → revit_test).</summary>
-    public string TestBlockName => Profiles.Contains("autocad-addin") && !Profiles.Contains("revit-addin") ? "autocad_test" : "revit_test";
+    /// <summary>Khối test của profile revit-addin.</summary>
+    public string TestBlockName => "revit_test";
     public Y TestBlock => Config[TestBlockName];
 
     /// <summary>Tìm folder task: id đầy đủ, tiền tố số issue, hoặc (trống) task đang làm gần nhất.</summary>

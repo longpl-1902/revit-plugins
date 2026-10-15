@@ -1,10 +1,20 @@
 ---
 name: process
-description: Luồng làm việc BIM_KB_Base (HAWEE) cho repo add-in Revit có hawee.project.yaml — bước 1 → 10, cổng G1–G6, tier T0–T3. Dùng khi bắt đầu hoặc tiếp tục bất kỳ task/issue/bug nào trong repo đó, hoặc khi không rõ bước tiếp theo.
+description: Luồng làm việc BIM_KB_Base (HAWEE) CHỈ khi phát triển add-in (plugin) Revit — repo có hawee.project.yaml với profiles chứa revit-addin. Bước 1 → 10, cổng G1–G6, tier T0–T3. Dùng khi bắt đầu hoặc tiếp tục task/issue/bug của add-in Revit trong repo đó, hoặc khi không rõ bước tiếp theo. KHÔNG dùng cho repo khác (không có hawee.project.yaml, profile khác như autocad-addin) hay việc không phải phát triển add-in Revit.
 user-invocable: false
 ---
 
 # Luồng HAWEE — bản ngắn
+
+## Phạm vi — đọc trước
+Quy trình này **chỉ** dùng khi phát triển add-in (plugin) **Revit**. Nhận biết: từ thư mục dự án đi lên có `hawee.project.yaml`
+và `profiles` chứa `revit-addin`.
+- Không thấy file đó, hoặc `profiles` không có `revit-addin` (vd. `autocad-addin`), hoặc việc không phải phát triển add-in
+  Revit (script lẻ, tài liệu, repo khác mở cùng phiên…) → **không áp quy trình**: làm việc bình thường theo yêu cầu, không gọi
+  tool `hawee-flow`, không đòi cổng / tier / suite, không gợi ý `/task-start`, `/spec`… .
+- Tool `hawee-flow` trả "không phải dự án add-in Revit" / "Không thấy hawee.project.yaml" → dừng quy trình, báo người một dòng,
+  rồi làm tiếp như bình thường (không tự tạo `hawee.project.yaml` để lách).
+- Người gõ lệnh của plugin (`/spec`, `/plan`…) ở repo ngoài phạm vi → báo plugin chỉ dùng cho add-in Revit, không làm theo lệnh.
 
 Quy trình nằm trong tool MCP `hawee-flow`, không nằm trong tài liệu. **Không đọc** `core/process/*.md`, `general.md`,
 mẫu spec/plan của BIM_KB_Base trừ khi tool trả về đúng mục cần đọc.

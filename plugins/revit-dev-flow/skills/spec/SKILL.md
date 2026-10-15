@@ -1,11 +1,13 @@
 ---
 name: spec
-description: Bước 3a–3c — spec làm cùng người qua gói câu hỏi; dừng ở mỗi gói và ở G1.
+description: Bước 3a–3c — spec làm cùng người qua gói câu hỏi; dừng ở mỗi gói và ở G1. Chỉ repo add-in Revit.
 argument-hint: "[task] | trả lời gói: Q1: B, Q2: mặc định"
 disable-model-invocation: true
 ---
 
 # /spec $ARGUMENTS
+
+> Chỉ dùng khi phát triển add-in Revit (repo có `hawee.project.yaml`, `profiles` có `revit-addin`). Repo / việc khác → báo người plugin này không áp dụng, không làm theo.
 
 Gọi `flow_next brief=true` trước. Spec đã dựng sẵn theo tier (`spec.md`); chỉ điền nội dung, không chép lại mẫu.
 Luôn: mọi khẳng định hiện trạng có `file:dòng`/log; không hỏi điều tự tìm được hoặc đã có trong decision log / §14

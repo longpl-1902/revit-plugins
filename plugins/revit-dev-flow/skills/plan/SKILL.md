@@ -1,11 +1,13 @@
 ---
 name: plan
-description: Bước 4a–4c — plan để code được ngay, làm cùng DEV / Tech Lead; dừng ở gói 4a, walkthrough và G2.
+description: Bước 4a–4c — plan để code được ngay, làm cùng DEV / Tech Lead; dừng ở gói 4a, walkthrough và G2. Chỉ repo add-in Revit.
 argument-hint: "[task] | trả lời gói 4a"
 disable-model-invocation: true
 ---
 
 # /plan $ARGUMENTS
+
+> Chỉ dùng khi phát triển add-in Revit (repo có `hawee.project.yaml`, `profiles` có `revit-addin`). Repo / việc khác → báo người plugin này không áp dụng, không làm theo.
 
 Gọi `flow_next brief=true` trước (điều kiện vào: G1 PASS/CONCERNS). Plan đã dựng sẵn theo tier — chỉ điền.
 `flow_next` báo "spec có AC đo bằng suite … mà chưa có suite" → **tự gọi skill `/test-design`** trước 4a (không chỉ nhắc người);

@@ -1,11 +1,13 @@
 ---
 name: gate
-description: Người duyệt ghi quyết định cổng G1–G6 cho task (status.yaml + decision log) và chuyển bước.
+description: Người duyệt ghi quyết định cổng G1–G6 cho task (status.yaml + decision log) và chuyển bước. Chỉ repo add-in Revit.
 argument-hint: <G1..G6> <PASS|CONCERNS|FAIL|WAIVED> [task] [lý do / bằng chứng]
 disable-model-invocation: true
 ---
 
 # /gate $ARGUMENTS
+
+> Chỉ dùng khi phát triển add-in Revit (repo có `hawee.project.yaml`, `profiles` có `revit-addin`). Repo / việc khác → báo người plugin này không áp dụng, không làm theo.
 
 Người vừa gõ lệnh này là người duyệt. Gọi `gate_record` với:
 - `gate`, `decision` lấy từ tham số; `task` nếu có (trống = task gần nhất);

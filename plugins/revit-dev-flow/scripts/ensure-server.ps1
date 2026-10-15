@@ -1,12 +1,15 @@
 # ensure-server.ps1 - SessionStart: dung (dotnet publish) server hawee-flow vao $CLAUDE_PLUGIN_DATA\server
 # khi chua co hoac ma nguon plugin da doi. Im lang khi khong co gi phai lam (stdout SessionStart vao context).
 # Chay tay: powershell -File scripts/ensure-server.ps1 [-Force]. PS 5.1, chi ASCII.
+# Pham vi: chay tu hook (co CLAUDE_PROJECT_DIR) o repo khong phai add-in Revit -> thoat im lang, khong dung server.
 #
 # Claude Code mo MCP server song song voi hook nay -> server CU co the dang chay va giu khoa DLL trong server\.
 # Vi vay: publish vao server.next, roi chep tung file sang server\; file dich dang bi nap thi doi ten
 # (<ten>.old-<ticks>, Windows cho doi ten file dang nap) roi chep ban moi. .stamp ghi sau cung.
 param([switch]$Force)
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'revit-scope.ps1')
+if (-not $Force -and $env:CLAUDE_PROJECT_DIR -and -not (Test-RevitRepo $env:CLAUDE_PROJECT_DIR)) { exit 0 }
 $root = if ($env:CLAUDE_PLUGIN_ROOT) { $env:CLAUDE_PLUGIN_ROOT } else { Split-Path -Parent $PSScriptRoot }
 # Chay tay (khong co CLAUDE_PLUGIN_DATA): tim thu muc data ma Claude Code dung (~\.claude\plugins\data\*revit-dev-flow*),
 # vi .mcp.json chay ${CLAUDE_PLUGIN_DATA}\server - dung nham cho khac thi Claude Code van chay ban cu.

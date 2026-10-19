@@ -134,6 +134,8 @@ An toàn khi chạy Revit (tool cấm, `allow_draw`, `setup_tools` có người 
 Theo quy ước của dự án: agent **phân tích** chạy Opus — `independent-reviewer` (rà spec / plan), `adversarial-reviewer`
 (review diff); việc **thực thi** chạy Sonnet trong phiên con — `/verify` (vòng test → sửa → test), `/revit-test`.
 Các lệnh còn lại chạy bằng model của phiên chính. Đổi: sửa `model:` trong frontmatter của file agent / skill.
+Chỉ dùng alias (`opus`, `sonnet`, `haiku`) trong `model:` — không ghi ID cố định như `claude-opus-5-5` — để luôn tự
+dùng model mới nhất của từng dòng (vd. Opus 5.5 hôm nay, Opus 6 khi ra mắt).
 
 ## Giới hạn hiện tại
 
